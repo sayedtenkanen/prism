@@ -13,26 +13,28 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     "httpx>=0.25.0",
     "python-dotenv>=1.0.0",
-    
+
     # LangGraph
     "langgraph>=0.2.0",
     "langchain-openai>=0.2.0",
     "langchain-core>=0.3.0",
-    
+
     # LLM
     "openai>=1.0.0",
-    
+
     # Storage
     "sqlalchemy>=2.0.0",
     "aiosqlite>=0.20.0",
-    
+
     # CLI
     "click>=8.0.0",
     "pyyaml>=6.0",
-    
-    # Daemon
+
+    # API / Daemon
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
     "apscheduler>=3.10.0",
-    
+
     # Docs review
     "pyspelling",
     "markdown-it-py",
@@ -100,7 +102,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["tests/*", "app/cli.py", "app/daemon.py"]
+omit = ["tests/*", "app/cli.py", "app/daemon.py", "app/main.py"]
 
 [tool.coverage.report]
 fail_under = 90
