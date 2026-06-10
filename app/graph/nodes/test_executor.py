@@ -57,7 +57,7 @@ async def _run_tests_for_language(
 
 async def _run_pytest(settings: Settings) -> TestResult:
     """Run pytest with coverage and parse results."""
-    timeout = settings.test.test_timeout
+    timeout = settings.test.timeout
 
     # Run pytest with JUnit XML and coverage
     cmd = [
@@ -237,7 +237,7 @@ def _parse_coverage_json(path: str) -> Optional[float]:
 
 async def _run_maven_test(settings: Settings) -> TestResult:
     """Run Maven test suite."""
-    timeout = settings.test.test_timeout
+    timeout = settings.test.timeout
     cmd = ["mvn", "test", "-q"]
 
     try:
@@ -284,7 +284,7 @@ def _parse_maven_output(returncode: int, stdout: bytes) -> TestResult:
 
 async def _run_cmake_test(settings: Settings) -> TestResult:
     """Run CTest test suite."""
-    timeout = settings.test.test_timeout
+    timeout = settings.test.timeout
     cmd = ["ctest", "--output-on-failure"]
 
     try:

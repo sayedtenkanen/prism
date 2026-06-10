@@ -231,7 +231,7 @@ class TestRunPytest:
     @pytest.mark.asyncio
     async def test_pytest_timeout(self):
         settings = Settings()
-        settings.test.test_timeout = 1
+        settings.test.timeout = 1
         with patch("asyncio.create_subprocess_exec") as mock_proc:
             mock_proc.return_value = AsyncMock()
             mock_proc.return_value.communicate = AsyncMock(side_effect=asyncio.TimeoutError)
