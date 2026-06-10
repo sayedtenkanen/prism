@@ -7,7 +7,7 @@ Pull Request Inspection, Synthesis & Monitoring — an AI-powered multi-language
 - **Multi-language support**: Python, Java, C++, Ada, Markdown
 - **Parallel reviewers**: Language-specific reviewers run concurrently via LangGraph Send API
 - **Configurable LLM models**: Different models per reviewer node
-- **Test integration**: Runs pytest/maven/ctest, enforces per-language coverage thresholds
+- **Test integration**: Runs pytest/Maven/CTest, enforces per-language coverage thresholds
 - **AI Judge**: Deduplicates and summarizes all reviewer outputs into a single verdict
 - **Human-in-the-loop**: Approval gate before posting results to Bitbucket
 - **Bitbucket integration**: Fetches PRs, posts summary comments, stores JSON artifacts
