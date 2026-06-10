@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -51,7 +51,7 @@ class ReviewIssue(BaseModel):
 
 class ReviewResult(BaseModel):
     language: Language
-    issues: List[ReviewIssue] = Field(default_factory=list)
+    issues: list[ReviewIssue] = Field(default_factory=list)
     summary: str = ""
     passed: bool = True
     tool_output: Optional[str] = None
@@ -66,7 +66,7 @@ class TestResult(BaseModel):
     coverage: Optional[float] = None
     coverage_threshold: Optional[float] = None
     coverage_passed: Optional[bool] = None
-    failures: List[Dict[str, Any]] = Field(default_factory=list)
+    failures: list[dict[str, Any]] = Field(default_factory=list)
 
     def evaluate(self, threshold: float) -> None:
         if self.coverage is not None:
@@ -76,9 +76,9 @@ class TestResult(BaseModel):
 
 class ComparisonResult(BaseModel):
     previous_review_id: Optional[str] = None
-    new_issues: List[ReviewIssue] = Field(default_factory=list)
-    fixed_issues: List[ReviewIssue] = Field(default_factory=list)
-    remaining_issues: List[ReviewIssue] = Field(default_factory=list)
+    new_issues: list[ReviewIssue] = Field(default_factory=list)
+    fixed_issues: list[ReviewIssue] = Field(default_factory=list)
+    remaining_issues: list[ReviewIssue] = Field(default_factory=list)
     trend: str = "new_review"
 
 
@@ -108,7 +108,7 @@ class ReviewSummary(BaseModel):
     project_key: str
     repo_slug: str
     author: str = ""
-    languages: List[str] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
     verdict: Optional[str] = None
     duration_ms: float = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)

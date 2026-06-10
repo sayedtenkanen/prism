@@ -1,13 +1,13 @@
 from app.llm.prompts import (
+    ADA_REVIEWER_PROMPT,
+    COMPARISON_PROMPT,
+    CPP_REVIEWER_PROMPT,
+    DOC_CODE_ALIGNMENT_PROMPT,
+    DOCS_REVIEWER_PROMPT,
+    JAVA_REVIEWER_PROMPT,
     JUDGE_SYSTEM_PROMPT,
     JUDGE_USER_PROMPT,
-    JAVA_REVIEWER_PROMPT,
     PYTHON_REVIEWER_PROMPT,
-    CPP_REVIEWER_PROMPT,
-    ADA_REVIEWER_PROMPT,
-    DOCS_REVIEWER_PROMPT,
-    COMPARISON_PROMPT,
-    DOC_CODE_ALIGNMENT_PROMPT,
 )
 
 
@@ -88,15 +88,11 @@ class TestPrompts:
         assert "Test diff" in formatted
 
     def test_comparison_prompt_formatting(self):
-        formatted = COMPARISON_PROMPT.format(
-            previous_review="Previous", current_review="Current"
-        )
+        formatted = COMPARISON_PROMPT.format(previous_review="Previous", current_review="Current")
         assert "Previous" in formatted
         assert "Current" in formatted
 
     def test_doc_code_alignment_prompt_formatting(self):
-        formatted = DOC_CODE_ALIGNMENT_PROMPT.format(
-            code_changes="Code", doc_changes="Docs"
-        )
+        formatted = DOC_CODE_ALIGNMENT_PROMPT.format(code_changes="Code", doc_changes="Docs")
         assert "Code" in formatted
         assert "Docs" in formatted

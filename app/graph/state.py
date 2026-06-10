@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from typing_extensions import TypedDict
 
@@ -35,13 +35,13 @@ class PRReviewState(TypedDict, total=False):
     # ── Fetched PR Data ──
     pr_metadata: Optional[PRMetadata]
     diff: Optional[str]
-    files: List[FileChange]
+    files: list[FileChange]
 
     # ── Detection ──
-    languages: List[Language]
+    languages: list[Language]
 
     # ── Review Results ──
-    review_results: Dict[str, ReviewResult]
+    review_results: dict[str, ReviewResult]
     test_results: Optional[TestResult]
 
     # ── Cross-check ──
@@ -61,8 +61,8 @@ class PRReviewState(TypedDict, total=False):
     review_summary: Optional[ReviewSummary]
 
     # ── Error tracking ──
-    errors: List[str]
-    retry_counts: Dict[str, int]
+    errors: list[str]
+    retry_counts: dict[str, int]
 
 
 def create_initial_state(
