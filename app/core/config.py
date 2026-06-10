@@ -1,7 +1,7 @@
 import os
-from typing import Dict, Optional
+from typing import Optional
 
-from pydantic import SecretStr, Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings
 
 
@@ -34,13 +34,13 @@ class TestConfig(BaseSettings):
     """Test execution configuration."""
 
     coverage_threshold: float = 80.0
-    language_thresholds: Dict[str, float] = {
+    language_thresholds: dict[str, float] = {
         "python": 85.0,
         "java": 80.0,
         "cpp": 75.0,
         "ada": 70.0,
     }
-    project_thresholds: Dict[str, float] = {}
+    project_thresholds: dict[str, float] = {}
     fail_on_coverage_below: bool = True
     fail_on_test_failure: bool = True
     test_timeout: int = 300

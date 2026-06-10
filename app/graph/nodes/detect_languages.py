@@ -1,5 +1,3 @@
-from typing import List
-
 from app.core.models import FileChange, FileChangeType, Language
 
 LANGUAGE_MAP = {
@@ -41,25 +39,27 @@ def is_test_file(file_path: str) -> bool:
     return False
 
 
-def detect_languages_from_files(file_paths: List[str]) -> List[FileChange]:
+def detect_languages_from_files(file_paths: list[str]) -> list[FileChange]:
     """Detect languages for a list of file paths and return FileChange objects."""
     files = []
     for path in file_paths:
         lang = detect_language(path)
         is_test = is_test_file(path)
-        files.append(FileChange(
-            path=path,
-            language=lang,
-            change_type=FileChangeType.MODIFIED,
-            is_test=is_test,
-        ))
+        files.append(
+            FileChange(
+                path=path,
+                language=lang,
+                change_type=FileChangeType.MODIFIED,
+                is_test=is_test,
+            )
+        )
     return files
 
 
-def get_unique_languages(files: List[FileChange]) -> List[Language]:
+def get_unique_languages(files: list[FileChange]) -> list[Language]:
     """Extract unique languages from a list of FileChange objects."""
-    seen = set()
-    languages = []
+    seen: set = set()
+    languages: list[Language] = []
     for file in files:
         if file.language not in seen and file.language != Language.UNKNOWN:
             seen.add(file.language)
