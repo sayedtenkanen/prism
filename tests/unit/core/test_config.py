@@ -68,7 +68,7 @@ class TestTestConfig:
         assert config.project_thresholds == {}
         assert config.fail_on_coverage_below is True
         assert config.fail_on_test_failure is True
-        assert config.test_timeout == 300
+        assert config.timeout == 300
 
     def test_get_threshold_default(self):
         config = TestConfig()
@@ -84,11 +84,11 @@ class TestTestConfig:
     def test_custom_values(self):
         config = TestConfig(
             coverage_threshold=70.0,
-            test_timeout=600,
+            timeout=600,
             fail_on_coverage_below=False,
         )
         assert config.coverage_threshold == 70.0
-        assert config.test_timeout == 600
+        assert config.timeout == 600
         assert config.fail_on_coverage_below is False
 
 

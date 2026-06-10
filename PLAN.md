@@ -50,21 +50,47 @@ LangGraph graph with Send API for parallel reviewers, retry 3x per node, human-i
 
 ## Configurable LLM Models
 
-Per reviewer node, configurable via `app/core/config.py`:
-- `python_reviewer_model`
-- `java_reviewer_model`
-- `cpp_reviewer_model`
-- `ada_reviewer_model`
-- `docs_reviewer_model`
-- `judge_model`
+Per reviewer node, configurable via `app/core/config.py` (env prefix `LLM_`):
+- `LLM_PYTHON_REVIEWER_MODEL` — default: `gpt-4o`
+- `LLM_JAVA_REVIEWER_MODEL` — default: `gpt-4o`
+- `LLM_CPP_REVIEWER_MODEL` — default: `gpt-4o`
+- `LLM_ADA_REVIEWER_MODEL` — default: `gpt-4o`
+- `LLM_DOCS_REVIEWER_MODEL` — default: `gpt-4o`
+- `LLM_JUDGE_MODEL` — default: `gpt-4o`
+- `LLM_TEMPERATURE` — default: `0.3`
 
-## Coverage Thresholds
+## Bitbucket Config
 
-Configurable per language and per project in `TestConfig`:
+Env prefix `BB_`:
+- `BB_URL` — default: `https://bitbucket.example.com`
+- `BB_TOKEN` — required
+
+## Test Config
+
+Env prefix `PRISM_TEST_`:
+- `PRISM_TEST_COVERAGE_THRESHOLD` — default: `80.0`
+- `PRISM_TEST_FAIL_ON_COVERAGE_BELOW` — default: `true`
+- `PRISM_TEST_FAIL_ON_TEST_FAILURE` — default: `true`
+- `PRISM_TEST_TIMEOUT` — default: `300` (seconds)
+
+Per-language thresholds:
 ```python
 language_thresholds = {"python": 85.0, "java": 80.0, "cpp": 75.0, "ada": 70.0}
 project_thresholds = {}  # override per project_key
 ```
+
+## Storage Config
+
+Env prefix `STORAGE_`:
+- `STORAGE_DB_PATH` — default: `prism.db`
+- `STORAGE_JSON_STORAGE_PATH` — default: `./reports`
+
+## App Config
+
+Env prefix `PRISM_`:
+- `PRISM_HITL_ENABLED` — default: `true`
+- `PRISM_RETRY_MAX_ATTEMPTS` — default: `3`
+- `PRISM_LOG_LEVEL` — default: `INFO`
 
 ## Tech Stack
 

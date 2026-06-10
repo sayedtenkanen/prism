@@ -43,7 +43,7 @@ class TestConfig(BaseSettings):
     project_thresholds: dict[str, float] = {}
     fail_on_coverage_below: bool = True
     fail_on_test_failure: bool = True
-    test_timeout: int = 300
+    timeout: int = 300
 
     def get_threshold(self, language: str, project_key: Optional[str] = None) -> float:
         """Get coverage threshold for a language/project combination."""
