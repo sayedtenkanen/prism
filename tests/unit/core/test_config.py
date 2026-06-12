@@ -1,7 +1,9 @@
 import os
 from unittest.mock import patch
 
-from app.core.config import BitbucketConfig, LLMConfig, Settings, StorageConfig, TestConfig
+import pytest
+
+from app.core.config import DSPyConfig, LLMConfig, SCMConfig, SCMProvider, Settings, StorageConfig, TestConfig
 
 
 class TestLLMConfig:
@@ -37,24 +39,56 @@ class TestLLMConfig:
             assert config.api_key.get_secret_value() == ""
 
 
-class TestBitbucketConfig:
+class TestDSPyConfig:
     def test_defaults(self):
-        config = BitbucketConfig()
-        assert config.url == "https://bitbucket.example.com"
+        config = DSPyConfig()
+        assert config.compiled_prompt_path == "./dspy_prompts"
+        assert config.max_bootstrapped_demos == 4
+        assert config.max_labeled_demos == 16
+        assert config.optimizer == "bootstrapFewShot"
+        assert config.optimization_metric == "review_accuracy"
+        assert config.use_chain_of_thought is True
 
-    def test_custom_url(self):
-        config = BitbucketConfig(url="https://bb.internal.com")
-        assert config.url == "https://bb.internal.com"
+    def test_custom_values(self):
+        config = DSPyConfig(
+            optimizer="mipro",
+            max_bootstrapped_demos=8,
+            use_chain_of_thought=False,
+        )
+        assert config.optimizer == "mipro"
+        assert config.max_bootstrapped_demos == 8
+        assert config.use_chain_of_thought is False
 
-    def test_token_from_env(self):
-        with patch.dict(os.environ, {"BB_TOKEN": "my-token"}):
-            config = BitbucketConfig()
-            assert config.token.get_secret_value() == "my-token"
 
-    def test_token_default_empty(self):
-        with patch.dict(os.environ, {}, clear=True):
-            config = BitbucketConfig()
-            assert config.token.get_secret_value() == ""
+class TestSCMConfig:
+    def test_defaults(self):
+        config = SCMConfig()
+        assert config.provider == SCMProvider.GITHUB
+        assert config.github_api_url == "https://api.github.com"
+        assert config.bitbucket_url == "https://bitbucket.example.com"
+
+    def test_github_token_from_env(self):
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "ghp_test"}):
+            config = SCMConfig()
+            assert config.github_token.get_secret_value() == "ghp_test"
+
+    def test_bitbucket_token_from_env(self):
+        with patch.dict(os.environ, {"BB_TOKEN": "bb-token"}):
+            config = SCMConfig()
+            assert config.bitbucket_token.get_secret_value() == "bb-token"
+
+    def test_provider_enum(self):
+        config = SCMConfig(provider=SCMProvider.BITBUCKET)
+        assert config.provider == SCMProvider.BITBUCKET
+        assert config.provider.value == "bitbucket"
+
+    def test_provider_string_coercion(self):
+        config = SCMConfig(provider="github")
+        assert config.provider == SCMProvider.GITHUB
+
+    def test_invalid_provider_rejected(self):
+        with pytest.raises(Exception, match="provider|invalid"):
+            SCMConfig(provider="invalid")
 
 
 class TestTestConfig:
@@ -92,6 +126,25 @@ class TestTestConfig:
         assert config.fail_on_coverage_below is False
 
 
+class TestStorageConfig:
+    def test_defaults(self):
+        config = StorageConfig()
+        assert config.db_path == "prism.db"
+        assert config.json_storage_path == "./reports"
+        assert config.postgres_url == "postgresql+asyncpg://localhost:5432/prism"
+
+    def test_custom_values(self):
+        config = StorageConfig(db_path="/tmp/test.db", json_storage_path="/tmp/reports")
+        assert config.db_path == "/tmp/test.db"
+        assert config.json_storage_path == "/tmp/reports"
+
+    def test_env_overrides_postgres_url(self):
+        postgres_url = "postgresql+asyncpg://db.example.com:5432/custom_prism"
+        with patch.dict(os.environ, {"STORAGE_POSTGRES_URL": postgres_url}):
+            config = StorageConfig()
+            assert config.postgres_url == postgres_url
+
+
 class TestSettings:
     def test_defaults(self):
         settings = Settings()
@@ -99,7 +152,8 @@ class TestSettings:
         assert settings.retry_max_attempts == 3
         assert settings.log_level == "INFO"
         assert isinstance(settings.llm, LLMConfig)
-        assert isinstance(settings.bitbucket, BitbucketConfig)
+        assert isinstance(settings.dspy, DSPyConfig)
+        assert isinstance(settings.scm, SCMConfig)
         assert isinstance(settings.test, TestConfig)
         assert isinstance(settings.storage, StorageConfig)
 
@@ -112,19 +166,3 @@ class TestSettings:
         assert settings.hitl_enabled is False
         assert settings.retry_max_attempts == 5
         assert settings.log_level == "DEBUG"
-
-
-class TestStorageConfig:
-    def test_defaults(self):
-        from app.core.config import StorageConfig
-
-        config = StorageConfig()
-        assert config.db_path == "prism.db"
-        assert config.json_storage_path == "./reports"
-
-    def test_custom_values(self):
-        from app.core.config import StorageConfig
-
-        config = StorageConfig(db_path="/tmp/test.db", json_storage_path="/tmp/reports")
-        assert config.db_path == "/tmp/test.db"
-        assert config.json_storage_path == "/tmp/reports"
