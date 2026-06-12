@@ -30,8 +30,6 @@ AGENTS = [
     (DocumentationAgent, "documentation"),
 ]
 
-MOCK_FINDING = {"finding": "test", "severity": "low", "confidence": 0.8, "evidence": "x", "recommendation": "y"}
-
 
 class TestParseFindings:
     def test_list_passthrough(self):
@@ -52,20 +50,20 @@ class TestParseFindings:
 
 
 class TestWeightedScore:
-    def test_empty_findings(self):
-        assert weighted_score([], "security") == 0.0
-
-    def test_single_finding(self):
-        result = weighted_score([{"confidence": 0.8}], "security")
-        assert result == 0.8
+    def test_zero_confidence(self):
+        assert weighted_score({"confidence": 0.0}, "security") == 0.0
 
     def test_applies_domain_weight(self):
-        result = weighted_score([{"confidence": 1.0}], "documentation")
+        result = weighted_score({"confidence": 1.0}, "documentation")
         assert result == 0.5
 
     def test_unknown_agent_uses_default(self):
-        result = weighted_score([{"confidence": 1.0}], "unknown")
+        result = weighted_score({"confidence": 1.0}, "unknown")
         assert result == 0.5
+
+    def test_missing_confidence_defaults_to_zero(self):
+        result = weighted_score({}, "security")
+        assert result == 0.0
 
 
 class TestDomainWeights:
@@ -178,7 +176,7 @@ class TestDebateModule:
             "security": {"findings": []},
             "performance": {"findings": []},
         }
-        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        result = debate(agent_results=agent_results, diff="+y")
         assert result["debate_records"] == []
 
     def test_low_confidence_findings_skipped(self):
@@ -186,7 +184,28 @@ class TestDebateModule:
         agent_results = {
             "security": {"findings": [{"finding": "x", "confidence": 0.2}]},
         }
-        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        result = debate(agent_results=agent_results, diff="+y")
+        assert result["debate_records"] == []
+
+    def test_boundary_confidence_exactly_0_6_is_challenged(self):
+        debate = DebateModule()
+        mock_result = MagicMock()
+        mock_result.challenge = "Borderline"
+        mock_result.confidence_adjustment = -0.1
+        debate.challenge = MagicMock(return_value=mock_result)
+
+        agent_results = {
+            "security": {"findings": [{"finding": "x", "confidence": 0.6}]},
+        }
+        result = debate(agent_results=agent_results, diff="+y")
+        assert len(result["debate_records"]) == len(CROSS_CHALLENGES["security"])
+
+    def test_confidence_0_49_not_challenged(self):
+        debate = DebateModule()
+        agent_results = {
+            "security": {"findings": [{"finding": "x", "confidence": 0.49}]},
+        }
+        result = debate(agent_results=agent_results, diff="+y")
         assert result["debate_records"] == []
 
     def test_challenge_reduces_confidence(self):
@@ -199,11 +218,11 @@ class TestDebateModule:
         agent_results = {
             "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
         }
-        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        result = debate(agent_results=agent_results, diff="+y")
         assert len(result["debate_records"]) == 1
         assert result["debate_records"][0]["new_confidence"] == pytest.approx(0.3)
 
-    def test_challenge_clamps_confidence(self):
+    def test_challenge_clamps_to_zero(self):
         debate = DebateModule()
         mock_result = MagicMock()
         mock_result.challenge = "Overconfident"
@@ -213,8 +232,35 @@ class TestDebateModule:
         agent_results = {
             "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
         }
-        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        result = debate(agent_results=agent_results, diff="+y")
         assert result["debate_records"][0]["new_confidence"] == 0.0
+
+    def test_challenge_clamps_to_one(self):
+        debate = DebateModule()
+        mock_result = MagicMock()
+        mock_result.challenge = "Confirmed"
+        mock_result.confidence_adjustment = 0.5
+        debate.challenge = MagicMock(return_value=mock_result)
+
+        agent_results = {
+            "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
+        }
+        result = debate(agent_results=agent_results, diff="+y")
+        assert result["debate_records"][0]["new_confidence"] == 1.0
+
+    def test_missing_confidence_defaults_to_0_5(self):
+        debate = DebateModule()
+        mock_result = MagicMock()
+        mock_result.challenge = "Adjusted"
+        mock_result.confidence_adjustment = -0.2
+        debate.challenge = MagicMock(return_value=mock_result)
+
+        agent_results = {
+            "security": {"findings": [{"finding": "x"}]},
+        }
+        result = debate(agent_results=agent_results, diff="+y")
+        assert len(result["debate_records"]) == 1
+        assert result["debate_records"][0]["new_confidence"] == pytest.approx(0.3)
 
     def test_accepted_when_above_threshold(self):
         debate = DebateModule()
@@ -226,8 +272,38 @@ class TestDebateModule:
         agent_results = {
             "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
         }
-        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        result = debate(agent_results=agent_results, diff="+y")
         assert result["debate_records"][0]["accepted"] is True
+
+    def test_challenged_by_is_challenger_not_source(self):
+        debate = DebateModule()
+        mock_result = MagicMock()
+        mock_result.challenge = "Challenge"
+        mock_result.confidence_adjustment = -0.1
+        debate.challenge = MagicMock(return_value=mock_result)
+
+        agent_results = {
+            "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
+        }
+        result = debate(agent_results=agent_results, diff="+y")
+        record = result["debate_records"][0]
+        assert record["challenged_by"] == "performance" or record["challenged_by"] == "architecture"
+        assert record["challenged_by"] != "security"
+
+    def test_finding_is_shallow_copy_not_mutation(self):
+        debate = DebateModule()
+        mock_result = MagicMock()
+        mock_result.challenge = "Adjust"
+        mock_result.confidence_adjustment = -0.5
+        debate.challenge = MagicMock(return_value=mock_result)
+
+        original_finding = {"finding": "x", "confidence": 0.8}
+        agent_results = {
+            "security": {"findings": [original_finding]},
+        }
+        result = debate(agent_results=agent_results, diff="+y")
+        assert result["debate_records"][0]["finding"]["confidence"] == 0.8
+        assert original_finding["confidence"] == pytest.approx(0.3)
 
 
 class TestJudgeModule:

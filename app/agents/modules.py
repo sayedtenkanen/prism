@@ -31,12 +31,9 @@ CROSS_CHALLENGES: dict[str, list[str]] = {
 }
 
 
-def weighted_score(findings: list[dict[str, Any]], agent_name: str) -> float:
+def weighted_score(finding: dict[str, Any], agent_name: str) -> float:
     weight = DOMAIN_WEIGHTS.get(agent_name, 0.5)
-    if not findings:
-        return 0.0
-    scores: list[float] = [float(f.get("confidence", 0.0)) * weight for f in findings]
-    return round(sum(scores) / len(scores), 3)
+    return round(float(finding.get("confidence", 0.0)) * weight, 3)
 
 
 class ReviewOrchestrator(dspy.Module):
@@ -67,7 +64,7 @@ class DebateModule(dspy.Module):
         super().__init__()
         self.challenge = dspy.ChainOfThought(DebateChallenge)
 
-    def forward(self, agent_results: dict[str, Any], files_changed: str, diff: str) -> dict[str, Any]:
+    def forward(self, agent_results: dict[str, Any], diff: str) -> dict[str, Any]:
         debate_records: list[dict[str, Any]] = []
 
         for agent_name, challengers in CROSS_CHALLENGES.items():
@@ -78,7 +75,7 @@ class DebateModule(dspy.Module):
 
             for challenger_name in challengers:
                 for finding in findings:
-                    if finding.get("confidence", 0.0) < 0.6:
+                    if finding.get("confidence", 0.5) < 0.5:
                         continue
                     result = self.challenge(
                         finding=json.dumps(finding),
@@ -89,8 +86,8 @@ class DebateModule(dspy.Module):
                     new_confidence = max(0.0, min(1.0, finding.get("confidence", 0.5) + adjustment))
                     debate_records.append(
                         {
-                            "finding": finding,
-                            "challenged_by": agent_name,
+                            "finding": {**finding},
+                            "challenged_by": challenger_name,
                             "challenge_text": result.challenge,
                             "confidence_change": adjustment,
                             "new_confidence": new_confidence,
@@ -117,7 +114,7 @@ class JudgeModule(dspy.Module):
         all_findings: dict[str, list] = {}
         for agent_name, result in agent_results.items():
             findings = result.get("findings", [])
-            all_findings[agent_name] = [{**f, "_weighted_score": weighted_score([f], agent_name)} for f in findings]
+            all_findings[agent_name] = [{**f, "_weighted_score": weighted_score(f, agent_name)} for f in findings]
 
         result = self.judge(all_findings=json.dumps(all_findings))
 
@@ -141,7 +138,7 @@ class FullReviewPipeline(dspy.Module):
 
     def forward(self, files_changed: str, diff: str) -> dict[str, Any]:
         agent_results = self.orchestrator(files_changed=files_changed, diff=diff)
-        debate_result = self.debate(agent_results=agent_results, files_changed=files_changed, diff=diff)
+        debate_result = self.debate(agent_results=agent_results, diff=diff)
         verdict: dict[str, Any] = self.judge(agent_results=debate_result["agent_results"])
         verdict["debate_records"] = debate_result["debate_records"]
         return verdict
