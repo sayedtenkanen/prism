@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 
 from app.agents.modules import FullReviewPipeline
@@ -16,7 +17,7 @@ async def review_node(state: dict[str, Any]) -> dict[str, Any]:
     files_changed = state.get("files_changed", "")
     diff = state.get("diff", "")
     pipeline = get_pipeline()
-    result = pipeline(files_changed=files_changed, diff=diff)
+    result = await asyncio.to_thread(pipeline, files_changed=files_changed, diff=diff)
     return {
         "agent_results": result.get("agent_results", {}),
         "debate_records": result.get("debate_records", []),

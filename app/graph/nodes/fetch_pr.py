@@ -4,6 +4,7 @@ from app.scm.github import GitHubClient
 
 
 async def fetch_pr(state: dict[str, Any]) -> dict[str, Any]:
+    assert state.get("scm_provider") == "github", f"Unsupported provider: {state.get('scm_provider')}"
     client = GitHubClient(token=state["scm_token"])
     try:
         pr_metadata = await client.get_pr(state["owner"], state["repo"], state["pr_number"])
@@ -24,6 +25,11 @@ async def fetch_pr(state: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         errors = list(state.get("errors", []))
         errors.append(f"fetch_pr: {e}")
-        return {"errors": errors}
+        return {
+            "errors": errors,
+            "pr_metadata": None,
+            "diff": None,
+            "files_changed": None,
+        }
     finally:
         await client.close()

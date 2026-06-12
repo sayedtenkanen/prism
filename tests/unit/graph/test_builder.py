@@ -57,23 +57,48 @@ class TestFetchPr:
         mock_client.close = AsyncMock()
 
         with patch("app.graph.nodes.fetch_pr.GitHubClient", return_value=mock_client):
-            state = {"scm_token": "tok", "owner": "o", "repo": "r", "pr_number": 1, "errors": []}
+            state = {
+                "scm_token": "tok",
+                "scm_provider": "github",
+                "owner": "o",
+                "repo": "r",
+                "pr_number": 1,
+                "errors": [],
+            }
             result = await fetch_pr(state)
             assert result["pr_metadata"] == {"title": "Test PR"}
             assert result["diff"] == "diff --git a/file.py"
             assert "file.py" in result["files_changed"]
 
     @pytest.mark.asyncio
-    async def test_fetch_pr_error(self):
+    async def test_fetch_pr_error_clears_stale_data(self):
         mock_client = AsyncMock()
         mock_client.get_pr = AsyncMock(side_effect=Exception("API error"))
         mock_client.close = AsyncMock()
 
         with patch("app.graph.nodes.fetch_pr.GitHubClient", return_value=mock_client):
-            state = {"scm_token": "tok", "owner": "o", "repo": "r", "pr_number": 1, "errors": []}
+            state = {
+                "scm_token": "tok",
+                "scm_provider": "github",
+                "owner": "o",
+                "repo": "r",
+                "pr_number": 1,
+                "errors": [],
+                "pr_metadata": {"stale": True},
+                "diff": "stale diff",
+                "files_changed": "stale files",
+            }
             result = await fetch_pr(state)
             assert len(result["errors"]) == 1
-            assert "API error" in result["errors"][0]
+            assert result["pr_metadata"] is None
+            assert result["diff"] is None
+            assert result["files_changed"] is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_pr_rejects_non_github(self):
+        state = {"scm_token": "tok", "scm_provider": "gitlab", "owner": "o", "repo": "r", "pr_number": 1, "errors": []}
+        with pytest.raises(AssertionError, match="Unsupported provider"):
+            await fetch_pr(state)
 
 
 class TestDetectNode:

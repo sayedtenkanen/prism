@@ -44,9 +44,14 @@ class TestCreateInitialState:
         assert state["diff"] is None
         assert state["files_changed"] is None
         assert state["languages"] == []
+        assert state["agent_results"] is None
         assert state["debate_records"] == []
         assert state["critical_findings"] == []
+        assert state["major_findings"] == []
+        assert state["minor_findings"] == []
         assert state["approved"] is False
+        assert state["review_url"] is None
+        assert state["json_report_path"] is None
         assert state["errors"] == []
         assert state["retry_counts"] == {}
 

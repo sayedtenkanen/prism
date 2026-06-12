@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -14,6 +15,10 @@ async def output_node(state: dict[str, Any]) -> dict[str, Any]:
         "pr_metadata": state.get("pr_metadata"),
     }
     report_path = f"report_{state.get('pr_number', 'unknown')}.json"
-    with open(report_path, "w") as f:
-        json.dump(report, f, indent=2, default=str)
+
+    def _write(path: str, payload: dict[str, Any]) -> None:
+        with open(path, "w") as f:
+            json.dump(payload, f, indent=2, default=str)
+
+    await asyncio.to_thread(_write, report_path, report)
     return {"json_report_path": report_path}
