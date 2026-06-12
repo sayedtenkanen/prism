@@ -10,9 +10,20 @@ class TestGitHubClient:
     def setup_method(self):
         self.client = GitHubClient(token="ghp_test", api_url="https://api.github.com")
 
+    def teardown_method(self):
+        pass
+
     def test_init(self):
         assert self.client.api_url == "https://api.github.com"
         assert "Bearer ghp_test" in self.client.headers["Authorization"]
+
+    def test_init_strips_trailing_slash(self):
+        client = GitHubClient(token="ghp_test", api_url="https://api.github.com/")
+        assert client.api_url == "https://api.github.com"
+
+    def test_init_strips_multiple_trailing_slashes(self):
+        client = GitHubClient(token="ghp_test", api_url="https://api.github.com///")
+        assert client.api_url == "https://api.github.com"
 
     @pytest.mark.asyncio
     async def test_get_pr(self):
@@ -26,12 +37,11 @@ class TestGitHubClient:
         }
         mock_response.raise_for_status = MagicMock()
 
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_http_client = AsyncMock()
+        mock_http_client.get = AsyncMock(return_value=mock_response)
+        mock_http_client.is_closed = False
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with patch.object(self.client, "_get_client", return_value=mock_http_client):
             result = await self.client.get_pr("owner", "repo", 123)
             assert result["number"] == 123
             assert result["title"] == "Test PR"
@@ -43,34 +53,48 @@ class TestGitHubClient:
         mock_response.text = "@@ -1,3 +1,4 @@\n+new line\n unchanged\n"
         mock_response.raise_for_status = MagicMock()
 
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_http_client = AsyncMock()
+        mock_http_client.get = AsyncMock(return_value=mock_response)
+        mock_http_client.is_closed = False
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with patch.object(self.client, "_get_client", return_value=mock_http_client):
             result = await self.client.get_diff("owner", "repo", 123)
             assert "+new line" in result
 
     @pytest.mark.asyncio
-    async def test_get_files(self):
+    async def test_get_files_pagination(self):
+        page1_response = MagicMock()
+        page1_response.status_code = 200
+        page1_response.json.return_value = [{"filename": f"file{i}.py"} for i in range(100)]
+        page1_response.raise_for_status = MagicMock()
+
+        page2_response = MagicMock()
+        page2_response.status_code = 200
+        page2_response.json.return_value = [{"filename": "file100.py"}]
+        page2_response.raise_for_status = MagicMock()
+
+        mock_http_client = AsyncMock()
+        mock_http_client.get = AsyncMock(side_effect=[page1_response, page2_response])
+        mock_http_client.is_closed = False
+
+        with patch.object(self.client, "_get_client", return_value=mock_http_client):
+            result = await self.client.get_files("owner", "repo", 123)
+            assert len(result) == 101
+
+    @pytest.mark.asyncio
+    async def test_get_files_single_page(self):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = [
-            {"filename": "test.py", "status": "modified", "additions": 5, "deletions": 2},
-            {"filename": "new.py", "status": "added", "additions": 10, "deletions": 0},
-        ]
+        mock_response.json.return_value = [{"filename": "test.py"}, {"filename": "main.py"}]
         mock_response.raise_for_status = MagicMock()
 
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_http_client = AsyncMock()
+        mock_http_client.get = AsyncMock(return_value=mock_response)
+        mock_http_client.is_closed = False
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with patch.object(self.client, "_get_client", return_value=mock_http_client):
             result = await self.client.get_files("owner", "repo", 123)
             assert len(result) == 2
-            assert result[0]["filename"] == "test.py"
 
     @pytest.mark.asyncio
     async def test_post_comment(self):
@@ -79,33 +103,33 @@ class TestGitHubClient:
         mock_response.json.return_value = {"id": 1, "body": "Review comment"}
         mock_response.raise_for_status = MagicMock()
 
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_http_client = AsyncMock()
+        mock_http_client.post = AsyncMock(return_value=mock_response)
+        mock_http_client.is_closed = False
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with patch.object(self.client, "_get_client", return_value=mock_http_client):
             result = await self.client.post_comment("owner", "repo", 123, "Review comment")
             assert result["body"] == "Review comment"
 
     @pytest.mark.asyncio
-    async def test_get_comments(self):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [
-            {"id": 1, "body": "Comment 1"},
-            {"id": 2, "body": "Comment 2"},
-        ]
-        mock_response.raise_for_status = MagicMock()
+    async def test_get_comments_pagination(self):
+        page1_response = MagicMock()
+        page1_response.status_code = 200
+        page1_response.json.return_value = [{"id": i, "body": f"Comment {i}"} for i in range(100)]
+        page1_response.raise_for_status = MagicMock()
 
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        page2_response = MagicMock()
+        page2_response.status_code = 200
+        page2_response.json.return_value = [{"id": 100, "body": "Comment 100"}]
+        page2_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        mock_http_client = AsyncMock()
+        mock_http_client.get = AsyncMock(side_effect=[page1_response, page2_response])
+        mock_http_client.is_closed = False
+
+        with patch.object(self.client, "_get_client", return_value=mock_http_client):
             result = await self.client.get_comments("owner", "repo", 123)
-            assert len(result) == 2
+            assert len(result) == 101
 
     @pytest.mark.asyncio
     async def test_get_file_content(self):
@@ -120,12 +144,11 @@ class TestGitHubClient:
         }
         mock_response.raise_for_status = MagicMock()
 
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_http_client = AsyncMock()
+        mock_http_client.get = AsyncMock(return_value=mock_response)
+        mock_http_client.is_closed = False
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with patch.object(self.client, "_get_client", return_value=mock_http_client):
             result = await self.client.get_file_content("owner", "repo", "test.py")
             assert result == "print('hello')"
 
@@ -139,11 +162,20 @@ class TestGitHubClient:
             response=MagicMock(status_code=404),
         )
 
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_http_client = AsyncMock()
+        mock_http_client.get = AsyncMock(return_value=mock_response)
+        mock_http_client.is_closed = False
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with patch.object(self.client, "_get_client", return_value=mock_http_client):
             with pytest.raises(httpx.HTTPStatusError):
                 await self.client.get_pr("owner", "repo", 999)
+
+    @pytest.mark.asyncio
+    async def test_close(self):
+        mock_http_client = AsyncMock()
+        mock_http_client.is_closed = False
+        mock_http_client.aclose = AsyncMock()
+        self.client._client = mock_http_client
+
+        await self.client.close()
+        mock_http_client.aclose.assert_called_once()

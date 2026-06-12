@@ -1,8 +1,14 @@
 import os
+from enum import Enum
 from typing import Optional
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings
+
+
+class SCMProvider(str, Enum):
+    GITHUB = "github"
+    BITBUCKET = "bitbucket"
 
 
 class LLMConfig(BaseSettings):
@@ -37,7 +43,7 @@ class DSPyConfig(BaseSettings):
 class SCMConfig(BaseSettings):
     """Source Code Management provider configuration."""
 
-    provider: str = "github"  # github or bitbucket
+    provider: SCMProvider = SCMProvider.GITHUB
     github_token: SecretStr = Field(default_factory=lambda: SecretStr(os.environ.get("GITHUB_TOKEN", "")))
     github_api_url: str = "https://api.github.com"
     bitbucket_url: str = "https://bitbucket.example.com"

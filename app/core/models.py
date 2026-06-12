@@ -51,71 +51,44 @@ class ReviewIssue(BaseModel):
 
 # ── Agent-specific finding models ──
 
+FindingSeverity = Literal["critical", "high", "medium", "low", "info"]
 
-class SecurityFinding(BaseModel):
+
+class BaseFinding(BaseModel):
+    """Base model for all agent-specific findings."""
+
     finding: str
-    severity: Literal["critical", "high", "medium", "low", "info"]
+    severity: FindingSeverity
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: str
     recommendation: str
     file: Optional[str] = None
     line: Optional[int] = None
+
+
+class SecurityFinding(BaseFinding):
     cwe_id: Optional[str] = None
     owasp_category: Optional[str] = None
 
 
-class PerformanceFinding(BaseModel):
-    finding: str
-    severity: Literal["critical", "high", "medium", "low", "info"]
-    confidence: float = Field(ge=0.0, le=1.0)
-    evidence: str
-    recommendation: str
-    file: Optional[str] = None
-    line: Optional[int] = None
+class PerformanceFinding(BaseFinding):
     category: Optional[str] = None  # n_plus_one, memory, network, database, loop
 
 
-class MaintainabilityFinding(BaseModel):
-    finding: str
-    severity: Literal["critical", "high", "medium", "low", "info"]
-    confidence: float = Field(ge=0.0, le=1.0)
-    evidence: str
-    recommendation: str
-    file: Optional[str] = None
-    line: Optional[int] = None
+class MaintainabilityFinding(BaseFinding):
     complexity_score: Optional[float] = None
 
 
-class TestingFinding(BaseModel):
-    finding: str
-    severity: Literal["critical", "high", "medium", "low", "info"]
-    confidence: float = Field(ge=0.0, le=1.0)
-    evidence: str
-    recommendation: str
-    file: Optional[str] = None
-    line: Optional[int] = None
+class TestingFinding(BaseFinding):
     coverage_gap: Optional[str] = None
 
 
-class ArchitectureFinding(BaseModel):
-    finding: str
-    severity: Literal["critical", "high", "medium", "low", "info"]
-    confidence: float = Field(ge=0.0, le=1.0)
-    evidence: str
-    recommendation: str
-    file: Optional[str] = None
-    line: Optional[int] = None
+class ArchitectureFinding(BaseFinding):
     layer_violation: Optional[str] = None
 
 
-class DocumentationFinding(BaseModel):
-    finding: str
-    severity: Literal["critical", "high", "medium", "low", "info"]
-    confidence: float = Field(ge=0.0, le=1.0)
-    evidence: str
-    recommendation: str
-    file: Optional[str] = None
-    line: Optional[int] = None
+class DocumentationFinding(BaseFinding):
+    pass
 
 
 Finding = Union[

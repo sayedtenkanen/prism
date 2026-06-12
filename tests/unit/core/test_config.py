@@ -1,7 +1,9 @@
 import os
 from unittest.mock import patch
 
-from app.core.config import DSPyConfig, LLMConfig, SCMConfig, Settings, StorageConfig, TestConfig
+import pytest
+
+from app.core.config import DSPyConfig, LLMConfig, SCMConfig, SCMProvider, Settings, StorageConfig, TestConfig
 
 
 class TestLLMConfig:
@@ -61,7 +63,7 @@ class TestDSPyConfig:
 class TestSCMConfig:
     def test_defaults(self):
         config = SCMConfig()
-        assert config.provider == "github"
+        assert config.provider == SCMProvider.GITHUB
         assert config.github_api_url == "https://api.github.com"
         assert config.bitbucket_url == "https://bitbucket.example.com"
 
@@ -75,9 +77,18 @@ class TestSCMConfig:
             config = SCMConfig()
             assert config.bitbucket_token.get_secret_value() == "bb-token"
 
-    def test_custom_provider(self):
-        config = SCMConfig(provider="bitbucket")
-        assert config.provider == "bitbucket"
+    def test_provider_enum(self):
+        config = SCMConfig(provider=SCMProvider.BITBUCKET)
+        assert config.provider == SCMProvider.BITBUCKET
+        assert config.provider.value == "bitbucket"
+
+    def test_provider_string_coercion(self):
+        config = SCMConfig(provider="github")
+        assert config.provider == SCMProvider.GITHUB
+
+    def test_invalid_provider_rejected(self):
+        with pytest.raises(Exception, match="provider|invalid"):
+            SCMConfig(provider="invalid")
 
 
 class TestTestConfig:
@@ -126,6 +137,12 @@ class TestStorageConfig:
         config = StorageConfig(db_path="/tmp/test.db", json_storage_path="/tmp/reports")
         assert config.db_path == "/tmp/test.db"
         assert config.json_storage_path == "/tmp/reports"
+
+    def test_env_overrides_postgres_url(self):
+        postgres_url = "postgresql+asyncpg://db.example.com:5432/custom_prism"
+        with patch.dict(os.environ, {"STORAGE_POSTGRES_URL": postgres_url}):
+            config = StorageConfig()
+            assert config.postgres_url == postgres_url
 
 
 class TestSettings:
