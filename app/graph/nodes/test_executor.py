@@ -16,11 +16,12 @@ async def run_test_suites(state: PRReviewState, settings: Settings) -> dict[str,
     Returns a TestResult with pass/fail/skip counts, coverage, and failure details.
     """
     languages = state.get("languages", [])
-    project_key = state.get("project_key", "")
+    project_key = f"{state.get('owner', '')}/{state.get('repo', '')}"
 
     results: list[TestResult] = []
 
-    for lang in languages:
+    for lang_str in languages:
+        lang = Language(lang_str) if lang_str in [e.value for e in Language] else Language.UNKNOWN
         result = await _run_tests_for_language(lang, project_key, settings)
         results.append(result)
 

@@ -204,10 +204,9 @@ class TestRunTestSuites:
 
     @pytest.mark.asyncio
     async def test_coverage_threshold_enforced(self):
-        state = {"languages": [Language.PYTHON], "project_key": "TEST"}
+        state = {"languages": [Language.PYTHON], "owner": "TEST", "repo": "repo"}
         settings = Settings()
-        # Use project_thresholds to override the default language threshold
-        settings.test.project_thresholds = {"TEST": 80.0}
+        settings.test.project_thresholds = {"TEST/repo": 80.0}
         with patch("app.graph.nodes.test_executor._run_pytest") as mock_pytest:
             mock_pytest.return_value = TestResult(framework="pytest", total=5, passed=5, coverage=60.0)
             result = await run_test_suites(state, settings)
@@ -218,9 +217,9 @@ class TestRunTestSuites:
 
     @pytest.mark.asyncio
     async def test_coverage_above_threshold(self):
-        state = {"languages": [Language.PYTHON], "project_key": "TEST"}
+        state = {"languages": [Language.PYTHON], "owner": "TEST", "repo": "repo"}
         settings = Settings()
-        settings.test.project_thresholds = {"TEST": 80.0}
+        settings.test.project_thresholds = {"TEST/repo": 80.0}
         with patch("app.graph.nodes.test_executor._run_pytest") as mock_pytest:
             mock_pytest.return_value = TestResult(framework="pytest", total=5, passed=5, coverage=95.0)
             result = await run_test_suites(state, settings)
