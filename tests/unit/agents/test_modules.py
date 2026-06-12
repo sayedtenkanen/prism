@@ -4,6 +4,7 @@ import dspy
 import pytest
 
 from app.agents.architecture import ArchitectureAgent
+from app.agents.base import BaseAgent, parse_findings
 from app.agents.documentation import DocumentationAgent
 from app.agents.maintainability import MaintainabilityAgent
 from app.agents.modules import JudgeModule, ReviewOrchestrator
@@ -19,6 +20,65 @@ AGENTS = [
     (ArchitectureAgent, "architecture"),
     (DocumentationAgent, "documentation"),
 ]
+
+
+class TestParseFindings:
+    def test_list_passthrough(self):
+        data = [{"finding": "x"}]
+        assert parse_findings(data) is data
+
+    def test_json_string(self):
+        assert parse_findings('[{"finding": "x"}]') == [{"finding": "x"}]
+
+    def test_invalid_json_string(self):
+        assert parse_findings("not json") == []
+
+    def test_none_returns_empty(self):
+        assert parse_findings(None) == []
+
+    def test_int_returns_empty(self):
+        assert parse_findings(42) == []
+
+
+class TestBaseAgent:
+    def test_subclass_inherits_forward(self):
+        assert issubclass(SecurityAgent, BaseAgent)
+        assert issubclass(PerformanceAgent, BaseAgent)
+        assert issubclass(MaintainabilityAgent, BaseAgent)
+        assert issubclass(TestingAgent, BaseAgent)
+        assert issubclass(ArchitectureAgent, BaseAgent)
+        assert issubclass(DocumentationAgent, BaseAgent)
+
+    def test_forward_returns_correct_shape(self):
+        agent = SecurityAgent()
+        mock_result = MagicMock()
+        mock_result.findings = '[{"finding": "test", "severity": "low", "confidence": 0.5}]'
+        mock_result.rationale = "Test reasoning"
+        agent.review = MagicMock(return_value=mock_result)
+        result = agent(files_changed="test.py", diff="+new line")
+        assert result == {
+            "agent_name": "security",
+            "findings": [{"finding": "test", "severity": "low", "confidence": 0.5}],
+            "reasoning": "Test reasoning",
+        }
+
+    def test_forward_handles_list_findings(self):
+        agent = SecurityAgent()
+        mock_result = MagicMock()
+        mock_result.findings = [{"finding": "already a list"}]
+        mock_result.rationale = "reasoning"
+        agent.review = MagicMock(return_value=mock_result)
+        result = agent(files_changed="x.py", diff="+y")
+        assert result["findings"] == [{"finding": "already a list"}]
+
+    def test_forward_handles_invalid_json(self):
+        agent = SecurityAgent()
+        mock_result = MagicMock()
+        mock_result.findings = "not valid json"
+        mock_result.rationale = "reasoning"
+        agent.review = MagicMock(return_value=mock_result)
+        result = agent(files_changed="x.py", diff="+y")
+        assert result["findings"] == []
 
 
 class TestAllAgents:

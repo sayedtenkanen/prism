@@ -1,4 +1,5 @@
 from app.agents.architecture import ArchitectureAgent
+from app.agents.base import BaseAgent, parse_findings
 from app.agents.documentation import DocumentationAgent
 from app.agents.maintainability import MaintainabilityAgent
 from app.agents.modules import JudgeModule, ReviewOrchestrator
@@ -25,6 +26,8 @@ __all__ = [
     "DocumentationReview",
     "JudgeAggregation",
     "DebateChallenge",
+    "BaseAgent",
+    "parse_findings",
     "SecurityAgent",
     "PerformanceAgent",
     "MaintainabilityAgent",

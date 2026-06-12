@@ -4,6 +4,7 @@ from typing import Any
 import dspy
 
 from app.agents.architecture import ArchitectureAgent
+from app.agents.base import parse_findings
 from app.agents.documentation import DocumentationAgent
 from app.agents.maintainability import MaintainabilityAgent
 from app.agents.performance import PerformanceAgent
@@ -13,7 +14,7 @@ from app.agents.testing import TestingAgent
 
 
 class ReviewOrchestrator(dspy.Module):
-    """Runs all review agents in parallel and collects findings."""
+    """Runs all review agents sequentially and collects findings."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -47,20 +48,10 @@ class JudgeModule(dspy.Module):
 
         result = self.judge(all_findings=json.dumps(all_findings))
 
-        def _safe_parse(value: Any) -> list[Any]:
-            if isinstance(value, str):
-                try:
-                    return list(json.loads(value))
-                except (json.JSONDecodeError, TypeError):
-                    return []
-            if isinstance(value, list):
-                return value
-            return []
-
         return {
             "summary": result.summary,
-            "critical_findings": _safe_parse(result.critical_findings),
-            "major_findings": _safe_parse(result.major_findings),
-            "minor_findings": _safe_parse(result.minor_findings),
+            "critical_findings": parse_findings(result.critical_findings),
+            "major_findings": parse_findings(result.major_findings),
+            "minor_findings": parse_findings(result.minor_findings),
             "approved": result.approved,
         }
