@@ -2,7 +2,13 @@ from app.agents.architecture import ArchitectureAgent
 from app.agents.base import BaseAgent, parse_findings
 from app.agents.documentation import DocumentationAgent
 from app.agents.maintainability import MaintainabilityAgent
-from app.agents.modules import JudgeModule, ReviewOrchestrator
+from app.agents.modules import (
+    DebateModule,
+    FullReviewPipeline,
+    JudgeModule,
+    ReviewOrchestrator,
+    weighted_score,
+)
 from app.agents.performance import PerformanceAgent
 from app.agents.security import SecurityAgent
 from app.agents.signatures import (
@@ -28,6 +34,7 @@ __all__ = [
     "DebateChallenge",
     "BaseAgent",
     "parse_findings",
+    "weighted_score",
     "SecurityAgent",
     "PerformanceAgent",
     "MaintainabilityAgent",
@@ -35,5 +42,7 @@ __all__ = [
     "ArchitectureAgent",
     "DocumentationAgent",
     "ReviewOrchestrator",
+    "DebateModule",
     "JudgeModule",
+    "FullReviewPipeline",
 ]

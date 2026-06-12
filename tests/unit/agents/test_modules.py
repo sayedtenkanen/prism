@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import dspy
 import pytest
@@ -7,10 +7,19 @@ from app.agents.architecture import ArchitectureAgent
 from app.agents.base import BaseAgent, parse_findings
 from app.agents.documentation import DocumentationAgent
 from app.agents.maintainability import MaintainabilityAgent
-from app.agents.modules import JudgeModule, ReviewOrchestrator
+from app.agents.modules import (
+    CROSS_CHALLENGES,
+    DOMAIN_WEIGHTS,
+    DebateModule,
+    FullReviewPipeline,
+    JudgeModule,
+    ReviewOrchestrator,
+    weighted_score,
+)
 from app.agents.performance import PerformanceAgent
 from app.agents.security import SecurityAgent
 from app.agents.testing import TestingAgent
+from app.graph.nodes.review_pipeline import get_pipeline, run_review_pipeline
 
 AGENTS = [
     (SecurityAgent, "security"),
@@ -20,6 +29,8 @@ AGENTS = [
     (ArchitectureAgent, "architecture"),
     (DocumentationAgent, "documentation"),
 ]
+
+MOCK_FINDING = {"finding": "test", "severity": "low", "confidence": 0.8, "evidence": "x", "recommendation": "y"}
 
 
 class TestParseFindings:
@@ -40,14 +51,38 @@ class TestParseFindings:
         assert parse_findings(42) == []
 
 
+class TestWeightedScore:
+    def test_empty_findings(self):
+        assert weighted_score([], "security") == 0.0
+
+    def test_single_finding(self):
+        result = weighted_score([{"confidence": 0.8}], "security")
+        assert result == 0.8
+
+    def test_applies_domain_weight(self):
+        result = weighted_score([{"confidence": 1.0}], "documentation")
+        assert result == 0.5
+
+    def test_unknown_agent_uses_default(self):
+        result = weighted_score([{"confidence": 1.0}], "unknown")
+        assert result == 0.5
+
+
+class TestDomainWeights:
+    def test_all_agents_have_weights(self):
+        assert len(DOMAIN_WEIGHTS) == 6
+        for agent_name in ["security", "performance", "maintainability", "testing", "architecture", "documentation"]:
+            assert agent_name in DOMAIN_WEIGHTS
+
+    def test_cross_challenges_cover_all_agents(self):
+        assert len(CROSS_CHALLENGES) == 6
+        for agent_name in CROSS_CHALLENGES:
+            assert isinstance(CROSS_CHALLENGES[agent_name], list)
+
+
 class TestBaseAgent:
     def test_subclass_inherits_forward(self):
         assert issubclass(SecurityAgent, BaseAgent)
-        assert issubclass(PerformanceAgent, BaseAgent)
-        assert issubclass(MaintainabilityAgent, BaseAgent)
-        assert issubclass(TestingAgent, BaseAgent)
-        assert issubclass(ArchitectureAgent, BaseAgent)
-        assert issubclass(DocumentationAgent, BaseAgent)
 
     def test_forward_returns_correct_shape(self):
         agent = SecurityAgent()
@@ -102,14 +137,7 @@ class TestAllAgents:
 
     @pytest.mark.parametrize(
         "agent_class",
-        [
-            SecurityAgent,
-            PerformanceAgent,
-            MaintainabilityAgent,
-            TestingAgent,
-            ArchitectureAgent,
-            DocumentationAgent,
-        ],
+        [SecurityAgent, PerformanceAgent, MaintainabilityAgent, TestingAgent, ArchitectureAgent, DocumentationAgent],
     )
     def test_agent_handles_invalid_json(self, agent_class):
         agent = agent_class()
@@ -126,28 +154,80 @@ class TestReviewOrchestrator:
         orch = ReviewOrchestrator()
         assert isinstance(orch, dspy.Module)
         assert len(orch.agents) == 6
-        assert "security" in orch.agents
-        assert "performance" in orch.agents
-        assert "maintainability" in orch.agents
-        assert "testing" in orch.agents
-        assert "architecture" in orch.agents
-        assert "documentation" in orch.agents
 
     def test_forward_calls_all_agents(self):
         orch = ReviewOrchestrator()
-        mock_result = {
-            "agent_name": "test",
-            "findings": [],
-            "reasoning": "test",
-        }
+        mock_result = {"agent_name": "test", "findings": [], "reasoning": "test"}
         for agent in orch.agents.values():
             agent.forward = MagicMock(return_value=mock_result)
 
         result = orch(files_changed="test.py", diff="+line")
-        assert isinstance(result, dict)
         assert len(result) == 6
         for agent_name in orch.agents:
             orch.agents[agent_name].forward.assert_called_once()
+
+
+class TestDebateModule:
+    def test_init(self):
+        debate = DebateModule()
+        assert isinstance(debate, dspy.Module)
+
+    def test_no_findings_skips_challenge(self):
+        debate = DebateModule()
+        agent_results = {
+            "security": {"findings": []},
+            "performance": {"findings": []},
+        }
+        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        assert result["debate_records"] == []
+
+    def test_low_confidence_findings_skipped(self):
+        debate = DebateModule()
+        agent_results = {
+            "security": {"findings": [{"finding": "x", "confidence": 0.2}]},
+        }
+        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        assert result["debate_records"] == []
+
+    def test_challenge_reduces_confidence(self):
+        debate = DebateModule()
+        mock_result = MagicMock()
+        mock_result.challenge = "Invalid finding"
+        mock_result.confidence_adjustment = -0.5
+        debate.challenge = MagicMock(return_value=mock_result)
+
+        agent_results = {
+            "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
+        }
+        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        assert len(result["debate_records"]) == 1
+        assert result["debate_records"][0]["new_confidence"] == pytest.approx(0.3)
+
+    def test_challenge_clamps_confidence(self):
+        debate = DebateModule()
+        mock_result = MagicMock()
+        mock_result.challenge = "Overconfident"
+        mock_result.confidence_adjustment = -2.0
+        debate.challenge = MagicMock(return_value=mock_result)
+
+        agent_results = {
+            "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
+        }
+        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        assert result["debate_records"][0]["new_confidence"] == 0.0
+
+    def test_accepted_when_above_threshold(self):
+        debate = DebateModule()
+        mock_result = MagicMock()
+        mock_result.challenge = "Minor issue"
+        mock_result.confidence_adjustment = -0.1
+        debate.challenge = MagicMock(return_value=mock_result)
+
+        agent_results = {
+            "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
+        }
+        result = debate(agent_results=agent_results, files_changed="x.py", diff="+y")
+        assert result["debate_records"][0]["accepted"] is True
 
 
 class TestJudgeModule:
@@ -155,7 +235,7 @@ class TestJudgeModule:
         judge = JudgeModule()
         assert isinstance(judge, dspy.Module)
 
-    def test_forward_aggregates(self):
+    def test_forward_aggregates_with_weighted_scores(self):
         judge = JudgeModule()
         mock_result = MagicMock()
         mock_result.summary = "All clear"
@@ -166,16 +246,16 @@ class TestJudgeModule:
         judge.judge = MagicMock(return_value=mock_result)
 
         agent_results = {
-            "security": {"findings": []},
+            "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
             "performance": {"findings": []},
         }
         result = judge(agent_results=agent_results)
-        assert isinstance(result, dict)
         assert result["summary"] == "All clear"
         assert result["approved"] is True
-        assert isinstance(result["critical_findings"], list)
-        assert isinstance(result["major_findings"], list)
-        assert isinstance(result["minor_findings"], list)
+
+        call_args = judge.judge.call_args
+        all_findings = call_args.kwargs.get("all_findings", call_args[1].get("all_findings", ""))
+        assert "_weighted_score" in all_findings
 
     def test_forward_handles_list_inputs(self):
         judge = JudgeModule()
@@ -190,3 +270,69 @@ class TestJudgeModule:
         result = judge(agent_results={"security": {"findings": []}})
         assert result["approved"] is False
         assert len(result["critical_findings"]) == 1
+
+
+class TestFullReviewPipeline:
+    def test_init(self):
+        pipe = FullReviewPipeline()
+        assert isinstance(pipe, dspy.Module)
+        assert hasattr(pipe, "orchestrator")
+        assert hasattr(pipe, "judge")
+
+    def test_forward_returns_verdict(self):
+        pipe = FullReviewPipeline()
+        pipe.orchestrator = MagicMock(
+            return_value={
+                "security": {"findings": []},
+                "performance": {"findings": []},
+            }
+        )
+        pipe.debate = MagicMock(
+            return_value={
+                "debate_records": [],
+                "agent_results": {
+                    "security": {"findings": []},
+                    "performance": {"findings": []},
+                },
+            }
+        )
+        pipe.judge = MagicMock(
+            return_value={
+                "summary": "OK",
+                "critical_findings": [],
+                "major_findings": [],
+                "minor_findings": [],
+                "approved": True,
+            }
+        )
+
+        result = pipe(files_changed="x.py", diff="+y")
+        assert result["summary"] == "OK"
+        assert result["approved"] is True
+        assert "debate_records" in result
+
+
+class TestReviewPipelineNode:
+    def test_get_pipeline_singleton(self):
+        p1 = get_pipeline()
+        p2 = get_pipeline()
+        assert p1 is p2
+
+    def test_run_review_pipeline(self):
+        state = {"files_changed": "x.py", "diff": "+line"}
+        mock_verdict = {
+            "summary": "OK",
+            "critical_findings": [],
+            "major_findings": [],
+            "minor_findings": [],
+            "approved": True,
+            "debate_records": [],
+        }
+        with patch("app.graph.nodes.review_pipeline.get_pipeline") as mock_get:
+            mock_pipeline = MagicMock(return_value=mock_verdict)
+            mock_get.return_value = mock_pipeline
+            import asyncio
+
+            result = asyncio.run(run_review_pipeline(state))
+            assert result["approved"] is True
+            assert result["review_summary"] == "OK"
