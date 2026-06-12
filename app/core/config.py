@@ -21,13 +21,29 @@ class LLMConfig(BaseSettings):
     model_config = {"env_prefix": "LLM_"}
 
 
-class BitbucketConfig(BaseSettings):
-    """Bitbucket Server configuration."""
+class DSPyConfig(BaseSettings):
+    """DSPy framework configuration."""
 
-    url: str = "https://bitbucket.example.com"
-    token: SecretStr = Field(default_factory=lambda: SecretStr(os.environ.get("BB_TOKEN", "")))
+    compiled_prompt_path: str = "./dspy_prompts"
+    max_bootstrapped_demos: int = 4
+    max_labeled_demos: int = 16
+    optimizer: str = "bootstrapFewShot"  # bootstrapFewShot, mipro, copro, gepa
+    optimization_metric: str = "review_accuracy"
+    use_chain_of_thought: bool = True
 
-    model_config = {"env_prefix": "BB_"}
+    model_config = {"env_prefix": "DSPY_"}
+
+
+class SCMConfig(BaseSettings):
+    """Source Code Management provider configuration."""
+
+    provider: str = "github"  # github or bitbucket
+    github_token: SecretStr = Field(default_factory=lambda: SecretStr(os.environ.get("GITHUB_TOKEN", "")))
+    github_api_url: str = "https://api.github.com"
+    bitbucket_url: str = "https://bitbucket.example.com"
+    bitbucket_token: SecretStr = Field(default_factory=lambda: SecretStr(os.environ.get("BB_TOKEN", "")))
+
+    model_config = {"env_prefix": "SCM_"}
 
 
 class TestConfig(BaseSettings):
@@ -57,6 +73,7 @@ class StorageConfig(BaseSettings):
 
     db_path: str = "prism.db"
     json_storage_path: str = "./reports"
+    postgres_url: str = "postgresql+asyncpg://localhost:5432/prism"
 
     model_config = {"env_prefix": "STORAGE_"}
 
@@ -65,7 +82,8 @@ class Settings(BaseSettings):
     """Main application settings."""
 
     llm: LLMConfig = LLMConfig()
-    bitbucket: BitbucketConfig = BitbucketConfig()
+    dspy: DSPyConfig = DSPyConfig()
+    scm: SCMConfig = SCMConfig()
     test: TestConfig = TestConfig()
     storage: StorageConfig = StorageConfig()
 

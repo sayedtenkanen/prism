@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -49,6 +49,125 @@ class ReviewIssue(BaseModel):
     rule: Optional[str] = None
 
 
+# ── Agent-specific finding models ──
+
+
+class SecurityFinding(BaseModel):
+    finding: str
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str
+    recommendation: str
+    file: Optional[str] = None
+    line: Optional[int] = None
+    cwe_id: Optional[str] = None
+    owasp_category: Optional[str] = None
+
+
+class PerformanceFinding(BaseModel):
+    finding: str
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str
+    recommendation: str
+    file: Optional[str] = None
+    line: Optional[int] = None
+    category: Optional[str] = None  # n_plus_one, memory, network, database, loop
+
+
+class MaintainabilityFinding(BaseModel):
+    finding: str
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str
+    recommendation: str
+    file: Optional[str] = None
+    line: Optional[int] = None
+    complexity_score: Optional[float] = None
+
+
+class TestingFinding(BaseModel):
+    finding: str
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str
+    recommendation: str
+    file: Optional[str] = None
+    line: Optional[int] = None
+    coverage_gap: Optional[str] = None
+
+
+class ArchitectureFinding(BaseModel):
+    finding: str
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str
+    recommendation: str
+    file: Optional[str] = None
+    line: Optional[int] = None
+    layer_violation: Optional[str] = None
+
+
+class DocumentationFinding(BaseModel):
+    finding: str
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str
+    recommendation: str
+    file: Optional[str] = None
+    line: Optional[int] = None
+
+
+Finding = Union[
+    SecurityFinding,
+    PerformanceFinding,
+    MaintainabilityFinding,
+    TestingFinding,
+    ArchitectureFinding,
+    DocumentationFinding,
+]
+
+
+# ── Agent review model ──
+
+
+class AgentReview(BaseModel):
+    agent_name: str
+    findings: list[Finding] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    reasoning: str = ""
+    files_analyzed: list[str] = Field(default_factory=list)
+    duration_ms: float = 0
+
+
+# ── Debate models ──
+
+
+class DebateRecord(BaseModel):
+    original_finding: Finding
+    challenged_by: str
+    challenge_text: str
+    revised_finding: Optional[Finding] = None
+    confidence_change: float = 0.0
+    accepted: bool = True
+
+
+# ── Judge verdict ──
+
+
+class JudgeVerdict(BaseModel):
+    summary: str
+    critical_findings: list[Finding] = Field(default_factory=list)
+    major_findings: list[Finding] = Field(default_factory=list)
+    minor_findings: list[Finding] = Field(default_factory=list)
+    approved: bool = True
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    debate_records: list[DebateRecord] = Field(default_factory=list)
+
+
+# ── Legacy models (kept for backward compatibility) ──
+
+
 class ReviewResult(BaseModel):
     language: Language
     issues: list[ReviewIssue] = Field(default_factory=list)
@@ -91,6 +210,7 @@ class PRMetadata(BaseModel):
     description: str = ""
     source_branch: str = ""
     destination_branch: str = ""
+    provider: str = "github"
 
 
 class NodeHealth(BaseModel):
