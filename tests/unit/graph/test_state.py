@@ -1,128 +1,82 @@
-from app.core.models import Language
 from app.graph.state import PRReviewState, create_initial_state
 
 
 class TestPRReviewState:
     def test_state_type_hints(self):
-        """Verify PRReviewState is a valid TypedDict."""
         state = PRReviewState(
-            project_key="TEST",
-            repo_slug="repo",
-            pr_id="123",
+            owner="octocat",
+            repo="hello-world",
+            pr_number=42,
+            scm_token="tok",
             hitl_enabled=True,
-            bb_url="https://bitbucket.example.com",
-            bb_token="token",
-            llm_provider="openai",
-            llm_model="gpt-4o",
-            llm_api_key="key",
-            llm_temperature=0.3,
-            pr_metadata=None,
-            diff=None,
-            files=[],
-            languages=[],
-            review_results={},
-            test_results=None,
-            doc_code_alignment=None,
-            previous_review=None,
-            comparison=None,
-            summary=None,
-            verdict=None,
-            bb_comment_url=None,
-            json_report_path=None,
-            review_summary=None,
-            errors=[],
-            retry_counts={},
         )
-        assert state["project_key"] == "TEST"
-        assert state["repo_slug"] == "repo"
-        assert state["pr_id"] == "123"
+        assert state["owner"] == "octocat"
+        assert state["repo"] == "hello-world"
+        assert state["pr_number"] == 42
         assert state["hitl_enabled"] is True
 
     def test_state_partial_creation(self):
-        """Verify state can be created with minimal fields."""
         state = PRReviewState(
-            project_key="TEST",
-            repo_slug="repo",
-            pr_id="123",
+            owner="octocat",
+            repo="hello-world",
+            pr_number=42,
         )
-        assert state["project_key"] == "TEST"
+        assert state["owner"] == "octocat"
         assert state.get("diff") is None
-        assert state.get("files") is None
+        assert state.get("files_changed") is None
 
 
 class TestCreateInitialState:
     def test_create_initial_state_defaults(self):
         state = create_initial_state(
-            project_key="TEST",
-            repo_slug="repo",
-            pr_id="123",
-            bb_url="https://bitbucket.example.com",
-            bb_token="token",
-            llm_api_key="key",
+            owner="octocat",
+            repo="hello-world",
+            pr_number=42,
+            scm_token="tok_123",
         )
-        assert state["project_key"] == "TEST"
-        assert state["repo_slug"] == "repo"
-        assert state["pr_id"] == "123"
+        assert state["owner"] == "octocat"
+        assert state["repo"] == "hello-world"
+        assert state["pr_number"] == 42
         assert state["hitl_enabled"] is True
-        assert state["bb_url"] == "https://bitbucket.example.com"
-        assert state["bb_token"] == "token"
-        assert state["llm_provider"] == "openai"
+        assert state["scm_provider"] == "github"
         assert state["llm_model"] == "gpt-4o"
-        assert state["llm_temperature"] == 0.3
-        assert state["llm_api_key"] == "key"
         assert state["pr_metadata"] is None
         assert state["diff"] is None
-        assert state["files"] == []
+        assert state["files_changed"] is None
         assert state["languages"] == []
-        assert state["review_results"] == {}
-        assert state["test_results"] is None
-        assert state["doc_code_alignment"] is None
-        assert state["previous_review"] is None
-        assert state["comparison"] is None
-        assert state["summary"] is None
-        assert state["verdict"] is None
-        assert state["bb_comment_url"] is None
-        assert state["json_report_path"] is None
-        assert state["review_summary"] is None
+        assert state["debate_records"] == []
+        assert state["critical_findings"] == []
+        assert state["approved"] is False
         assert state["errors"] == []
         assert state["retry_counts"] == {}
 
     def test_create_initial_state_custom(self):
         state = create_initial_state(
-            project_key="ENG",
-            repo_slug="api",
-            pr_id="456",
-            bb_url="https://bb.internal.com",
-            bb_token="mytoken",
-            llm_api_key="mykey",
+            owner="octocat",
+            repo="hello-world",
+            pr_number=42,
+            scm_token="tok",
             hitl_enabled=False,
-            llm_provider="ollama",
-            llm_model="llama3",
-            llm_temperature=0.5,
+            llm_model="gpt-4o-mini",
+            llm_api_key="key",
         )
-        assert state["project_key"] == "ENG"
-        assert state["repo_slug"] == "api"
-        assert state["pr_id"] == "456"
         assert state["hitl_enabled"] is False
-        assert state["llm_provider"] == "ollama"
-        assert state["llm_model"] == "llama3"
-        assert state["llm_temperature"] == 0.5
+        assert state["llm_model"] == "gpt-4o-mini"
+        assert state["llm_api_key"] == "key"
 
     def test_state_is_mutable(self):
         state = create_initial_state(
-            project_key="TEST",
-            repo_slug="repo",
-            pr_id="123",
-            bb_url="https://bitbucket.example.com",
-            bb_token="token",
-            llm_api_key="key",
+            owner="octocat",
+            repo="hello-world",
+            pr_number=42,
+            scm_token="tok",
         )
         state["diff"] = "+new line"
-        state["languages"] = [Language.PYTHON]
+        state["languages"] = ["python"]
         state["errors"].append("test error")
         state["retry_counts"]["fetch_pr"] = 1
 
         assert state["diff"] == "+new line"
-        assert state["languages"] == [Language.PYTHON]
+        assert state["languages"] == ["python"]
         assert state["errors"] == ["test error"]
         assert state["retry_counts"]["fetch_pr"] == 1
