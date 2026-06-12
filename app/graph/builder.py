@@ -24,11 +24,11 @@ async def human_approval(state: PRReviewState) -> PRReviewState:
 def build_graph() -> Any:
     graph = StateGraph(PRReviewState)
 
-    graph.add_node("fetch_pr", fetch_pr)  # type: ignore[arg-type]
-    graph.add_node("detect_languages", detect_node)  # type: ignore[arg-type]
-    graph.add_node("run_review", review_node)  # type: ignore[arg-type]
-    graph.add_node("human_approval", human_approval)  # type: ignore[arg-type]
-    graph.add_node("output", output_node)  # type: ignore[arg-type]
+    graph.add_node("fetch_pr", fetch_pr)
+    graph.add_node("detect_languages", detect_node)
+    graph.add_node("run_review", review_node)
+    graph.add_node("human_approval", human_approval)
+    graph.add_node("output", output_node)
 
     graph.set_entry_point("fetch_pr")
     graph.add_edge("fetch_pr", "detect_languages")

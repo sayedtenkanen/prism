@@ -2,6 +2,7 @@ import asyncio
 from typing import Any
 
 from app.agents.modules import FullReviewPipeline
+from app.graph.state import PRReviewState
 
 _pipeline: FullReviewPipeline | None = None
 
@@ -13,7 +14,7 @@ def get_pipeline() -> FullReviewPipeline:
     return _pipeline
 
 
-async def review_node(state: dict[str, Any]) -> dict[str, Any]:
+async def review_node(state: PRReviewState) -> dict[str, Any]:
     files_changed = state.get("files_changed", "")
     diff = state.get("diff", "")
     pipeline = get_pipeline()

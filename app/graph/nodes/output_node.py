@@ -2,8 +2,10 @@ import asyncio
 import json
 from typing import Any
 
+from app.graph.state import PRReviewState
 
-async def output_node(state: dict[str, Any]) -> dict[str, Any]:
+
+async def output_node(state: PRReviewState) -> dict[str, str]:
     report = {
         "summary": state.get("summary", ""),
         "approved": state.get("approved", False),

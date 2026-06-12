@@ -1,9 +1,8 @@
-from typing import Any
-
+from app.graph.state import PRReviewState
 from app.scm.github import GitHubClient
 
 
-async def fetch_pr(state: dict[str, Any]) -> dict[str, Any]:
+async def fetch_pr(state: PRReviewState) -> dict[str, str | None | list[str] | dict[str, str]]:
     assert state.get("scm_provider") == "github", f"Unsupported provider: {state.get('scm_provider')}"
     client = GitHubClient(token=state["scm_token"])
     try:
