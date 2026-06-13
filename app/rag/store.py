@@ -29,3 +29,8 @@ class RAGStore(ABC):
     async def count(self) -> int:
         """Return the number of stored documents."""
         pass
+
+    @abstractmethod
+    async def close(self) -> None:
+        """Release resources held by the store."""
+        pass

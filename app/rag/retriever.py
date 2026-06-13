@@ -2,15 +2,18 @@ from typing import Any
 
 from app.rag.store import RAGStore
 
+DEFAULT_DIFF_LIMIT = 1000
+
 
 class Retriever:
     """Retrieves relevant context from RAG store for code review."""
 
-    def __init__(self, store: RAGStore) -> None:
+    def __init__(self, store: RAGStore, diff_limit: int = DEFAULT_DIFF_LIMIT) -> None:
         self.store = store
+        self.diff_limit = diff_limit
 
     async def get_review_context(self, files_changed: str, diff: str) -> str:
-        query = f"code review for:\n{files_changed}\n{diff[:1000]}"
+        query = f"code review for:\n{files_changed}\n{diff[: self.diff_limit]}"
         results = await self.store.search(query, top_k=5)
         if not results:
             return ""

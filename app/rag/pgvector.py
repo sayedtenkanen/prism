@@ -17,7 +17,8 @@ class PGVectorStore(RAGStore):
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+                headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {},
+                timeout=httpx.Timeout(connect=5.0, read=10.0, write=10.0, pool=5.0),
             )
         return self._client
 
