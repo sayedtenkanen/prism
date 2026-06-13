@@ -1,64 +1,43 @@
-from typing import Optional
+from typing import Any, Optional
 
 from typing_extensions import TypedDict
 
-from app.core.models import (
-    ComparisonResult,
-    FileChange,
-    Language,
-    PRMetadata,
-    ReviewResult,
-    ReviewSummary,
-    TestResult,
-)
-
 
 class PRReviewState(TypedDict, total=False):
-    """The shared data package passed from node to node in the LangGraph."""
-
     # ── Input ──
-    project_key: str
-    repo_slug: str
-    pr_id: str
+    owner: str
+    repo: str
+    pr_number: int
+    scm_token: str
+    scm_provider: str
     hitl_enabled: bool
 
-    # ── Bitbucket Config (injected) ──
-    bb_url: str
-    bb_token: str
-
-    # ── LLM Config (injected) ──
-    llm_provider: str
+    # ── LLM Config ──
     llm_model: str
     llm_api_key: str
-    llm_temperature: float
 
     # ── Fetched PR Data ──
-    pr_metadata: Optional[PRMetadata]
+    pr_metadata: Optional[dict[str, Any]]
     diff: Optional[str]
-    files: list[FileChange]
+    files_changed: Optional[str]
 
     # ── Detection ──
-    languages: list[Language]
+    languages: list[str]
 
-    # ── Review Results ──
-    review_results: dict[str, ReviewResult]
-    test_results: Optional[TestResult]
+    # ── DSPy Review Results ──
+    agent_results: Optional[dict[str, Any]]
+    debate_records: list[dict[str, Any]]
 
-    # ── Cross-check ──
-    doc_code_alignment: Optional[str]
-
-    # ── Comparison ──
-    previous_review: Optional[ReviewResult]
-    comparison: Optional[ComparisonResult]
-
-    # ── Judge Output ──
+    # ── Judge Verdict ──
     summary: Optional[str]
-    verdict: Optional[str]
+    critical_findings: list[dict[str, Any]]
+    major_findings: list[dict[str, Any]]
+    minor_findings: list[dict[str, Any]]
+    approved: bool
 
     # ── Output ──
-    bb_comment_url: Optional[str]
+    review_url: Optional[str]
     json_report_path: Optional[str]
-    review_summary: Optional[ReviewSummary]
 
     # ── Error tracking ──
     errors: list[str]
@@ -66,43 +45,37 @@ class PRReviewState(TypedDict, total=False):
 
 
 def create_initial_state(
-    project_key: str,
-    repo_slug: str,
-    pr_id: str,
-    bb_url: str,
-    bb_token: str,
-    llm_api_key: str,
+    owner: str,
+    repo: str,
+    pr_number: int,
+    scm_token: str,
+    scm_provider: str = "github",
     hitl_enabled: bool = True,
-    llm_provider: str = "openai",
     llm_model: str = "gpt-4o",
-    llm_temperature: float = 0.3,
+    llm_api_key: str = "",
 ) -> PRReviewState:
-    """Create an initial state for the PR review graph."""
     return PRReviewState(
-        project_key=project_key,
-        repo_slug=repo_slug,
-        pr_id=pr_id,
+        owner=owner,
+        repo=repo,
+        pr_number=pr_number,
+        scm_token=scm_token,
+        scm_provider=scm_provider,
         hitl_enabled=hitl_enabled,
-        bb_url=bb_url,
-        bb_token=bb_token,
-        llm_provider=llm_provider,
         llm_model=llm_model,
         llm_api_key=llm_api_key,
-        llm_temperature=llm_temperature,
         pr_metadata=None,
         diff=None,
-        files=[],
+        files_changed=None,
         languages=[],
-        review_results={},
-        test_results=None,
-        doc_code_alignment=None,
-        previous_review=None,
-        comparison=None,
+        agent_results=None,
+        debate_records=[],
         summary=None,
-        verdict=None,
-        bb_comment_url=None,
+        critical_findings=[],
+        major_findings=[],
+        minor_findings=[],
+        approved=False,
+        review_url=None,
         json_report_path=None,
-        review_summary=None,
         errors=[],
         retry_counts={},
     )
