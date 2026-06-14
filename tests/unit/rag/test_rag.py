@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -19,6 +19,7 @@ class TestPGVectorStore:
         assert store.api_url == "http://localhost:8000"
         assert store.api_key == "key"
         assert store.collection == "test"
+        assert store._client is not None
 
     def test_init_defaults(self):
         store = PGVectorStore(api_url="http://localhost:8000/")
@@ -28,13 +29,11 @@ class TestPGVectorStore:
     @pytest.mark.asyncio
     async def test_add(self):
         store = PGVectorStore(api_url="http://localhost:8000")
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock()
         mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=mock_response)
-        with patch.object(store, "_get_client", return_value=mock_client):
-            await store.add("doc1", "test text", {"file_path": "test.py"})
-            mock_client.post.assert_called_once()
+        mock_client.post = AsyncMock(return_value=MagicMock(raise_for_status=MagicMock()))
+        store._client = mock_client
+        await store.add("doc1", "test text", {"file_path": "test.py"})
+        mock_client.post.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_search(self):
@@ -44,21 +43,19 @@ class TestPGVectorStore:
         mock_response.raise_for_status = MagicMock()
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
-        with patch.object(store, "_get_client", return_value=mock_client):
-            results = await store.search("query", top_k=3)
-            assert len(results) == 1
-            assert results[0]["text"] == "found"
+        store._client = mock_client
+        results = await store.search("query", top_k=3)
+        assert len(results) == 1
+        assert results[0]["text"] == "found"
 
     @pytest.mark.asyncio
     async def test_delete(self):
         store = PGVectorStore(api_url="http://localhost:8000")
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock()
         mock_client = AsyncMock()
-        mock_client.delete = AsyncMock(return_value=mock_response)
-        with patch.object(store, "_get_client", return_value=mock_client):
-            await store.delete("doc1")
-            mock_client.delete.assert_called_once()
+        mock_client.delete = AsyncMock(return_value=MagicMock(raise_for_status=MagicMock()))
+        store._client = mock_client
+        await store.delete("doc1")
+        mock_client.delete.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_found(self):
@@ -69,10 +66,10 @@ class TestPGVectorStore:
         mock_response.status_code = 200
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
-        with patch.object(store, "_get_client", return_value=mock_client):
-            result = await store.get("doc1")
-            assert result is not None
-            assert result["id"] == "doc1"
+        store._client = mock_client
+        result = await store.get("doc1")
+        assert result is not None
+        assert result["id"] == "doc1"
 
     @pytest.mark.asyncio
     async def test_get_not_found(self):
@@ -81,9 +78,9 @@ class TestPGVectorStore:
         mock_response.status_code = 404
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
-        with patch.object(store, "_get_client", return_value=mock_client):
-            result = await store.get("nonexistent")
-            assert result is None
+        store._client = mock_client
+        result = await store.get("nonexistent")
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_count(self):
@@ -93,9 +90,9 @@ class TestPGVectorStore:
         mock_response.raise_for_status = MagicMock()
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
-        with patch.object(store, "_get_client", return_value=mock_client):
-            count = await store.count()
-            assert count == 42
+        store._client = mock_client
+        count = await store.count()
+        assert count == 42
 
     @pytest.mark.asyncio
     async def test_close(self):
@@ -147,3 +144,11 @@ class TestRetriever:
         assert len(findings) == 1
         assert findings[0]["text"] == "similar"
         assert findings[0]["score"] == 0.85
+
+    @pytest.mark.asyncio
+    async def test_custom_diff_limit(self):
+        store = AsyncMock(spec=RAGStore)
+        store.search = AsyncMock(return_value=[])
+        retriever = Retriever(store, diff_limit=500)
+
+        assert retriever.diff_limit == 500
