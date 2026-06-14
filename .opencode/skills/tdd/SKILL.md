@@ -115,7 +115,7 @@ Rules:
 
 ### 4. Refactor
 
-After all tests pass, look for [refactor candidates](deep-modules.md):
+After all tests pass, look for [refactor candidates](refactoring.md):
 
 - [ ] Extract duplication
 - [ ] Deepen modules (move complexity behind simple interfaces)

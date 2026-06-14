@@ -1,70 +1,81 @@
-# Mocking Guidelines (Prism)
+# When to Mock
 
-## When to Mock
+Mock at **system boundaries** only:
 
-### External Services (Always Mock)
+- External APIs (payment, email, etc.)
+- Databases (sometimes - prefer test DB)
+- Time/randomness
+- File system (sometimes)
 
-These are I/O boundaries that make tests slow, flaky, or expensive.
+Don't mock:
 
-| What | Why Mock | How |
-|------|----------|-----|
-| `ChatOpenAI` | LLM calls cost money, take seconds | `MagicMock(return_value=mock_response)` |
-| `httpx` (GitHub API) | Network calls, rate limits | `pytest-httpx` or `respx` |
-| `PGVectorStore` | Requires PostgreSQL | Mock the `RAGStore` protocol |
-| `asyncio.to_thread` | Thread pool overhead | Mock the wrapped function |
+- Your own classes/modules
+- Internal collaborators
+- Anything you control
 
-```python
-# Mocking LLM calls
-def test_security_agent_uses_llm():
-    agent = SecurityAgent()
-    mock_result = MagicMock()
-    mock_result.findings = '[{"finding": "x"}]'
-    mock_result.rationale = "reasoning"
-    agent.review = MagicMock(return_value=mock_result)
+## Designing for Mockability
 
-    result = agent(files_changed="x.py", diff="+y")
-    assert result["findings"] == [{"finding": "x"}]
+At system boundaries, design interfaces that are easy to mock:
+
+**1. Use dependency injection**
+
+Pass external dependencies in rather than creating them internally:
+
+```typescript
+// Easy to mock
+function processPayment(order, paymentClient) {
+  return paymentClient.charge(order.total);
+}
+
+// Hard to mock
+function processPayment(order) {
+  const client = new StripeClient(process.env.STRIPE_KEY);
+  return client.charge(order.total);
+}
 ```
 
-### Internal Logic (Never Mock)
+**2. Prefer SDK-style interfaces over generic fetchers**
 
-These are pure functions or simple logic that should be tested directly.
+Create specific functions for each external operation instead of one generic function with conditional logic:
 
-| What | Why Not Mock | Test Instead |
-|------|--------------|--------------|
-| `parse_findings()` | Pure function, no side effects | Call directly, verify output |
-| `weighted_score()` | Domain logic, core behavior | Call directly, verify math |
-| `_finding_matches()` | Matching logic, testable | Call directly, verify boolean |
-| Pydantic models | Data validation, testable | Create instances, verify fields |
+```typescript
+// GOOD: Each function is independently mockable
+const api = {
+  getUser: (id) => fetch(`/users/${id}`),
+  getOrders: (userId) => fetch(`/users/${userId}/orders`),
+  createOrder: (data) => fetch('/orders', { method: 'POST', body: data }),
+};
 
-```python
-# Testing pure function directly
-def test_parse_findings_handles_json_string():
-    result = parse_findings('[{"finding": "x"}]')
-    assert result == [{"finding": "x"}]
-
-def test_parse_findings_handles_list_passthrough():
-    data = [{"finding": "x"}]
-    result = parse_findings(data)
-    assert result is data  # same object, not copied
+// BAD: Mocking requires conditional logic inside the mock
+const api = {
+  fetch: (endpoint, options) => fetch(endpoint, options),
+};
 ```
+
+The SDK approach means:
+- Each mock returns one specific shape
+- No conditional logic in test setup
+- Easier to see which endpoints a test exercises
+- Type safety per endpoint
 
 ---
 
-## Prism-Specific Patterns
+## Prism Examples
 
 ### Mocking Agent Results
 
 ```python
 # Pattern: Mock agent forward() to return controlled results
+agent = SecurityAgent()
 mock_result = {
     "agent_name": "security",
-    "findings": [
-        {"finding": "SQL injection", "severity": "critical", "confidence": 0.9}
-    ],
+    "findings": [{"finding": "SQL injection", "severity": "critical", "confidence": 0.9}],
     "reasoning": "Found SQL injection risk"
 }
-agent.forward = MagicMock(return_value=mock_result)
+agent.review = MagicMock(return_value=mock_result)
+
+result = agent(files_changed="app.py", diff="+cursor.execute(query)")
+assert result["findings"][0]["severity"] == "critical"
 ```
 
 ### Mocking Pipeline Stages
@@ -84,19 +95,25 @@ pipeline.judge = MagicMock(return_value={
     "summary": "OK",
     "approved": True,
 })
+
+result = pipeline(files_changed="x.py", diff="+y")
+assert result["approved"] is True
 ```
 
-### Mocking for Async Code
+### Mocking External LLM Calls
 
 ```python
-# Pattern: Mock asyncio.to_thread for sync pipeline in async node
-with patch("asyncio.to_thread", return_value=mock_verdict):
-    result = await review_node(state)
+# Pattern: Mock ChatOpenAI for LLM-dependent tests
+def test_security_agent_uses_llm():
+    agent = SecurityAgent()
+    mock_result = MagicMock()
+    mock_result.findings = '[{"finding": "x"}]'
+    mock_result.rationale = "reasoning"
+    agent.review = MagicMock(return_value=mock_result)
+
+    result = agent(files_changed="x.py", diff="+y")
+    assert result["findings"] == [{"finding": "x"}]
 ```
-
----
-
-## Anti-Patterns to Avoid
 
 ### Don't Mock What You Don't Own
 
@@ -123,20 +140,4 @@ with patch("app.agents.security.SecurityAgent.review"):
 agent = SecurityAgent()
 agent.review = MagicMock(return_value=mock_result)  # mock LLM only
 result = agent(files_changed="x.py", diff="+y")
-```
-
-### Don't Verify Implementation Details
-
-```python
-# BAD: Verifying internal call order
-orch = ReviewOrchestrator()
-orch(files_changed="x.py", diff="+y")
-orch.agents["security"].forward.assert_called_before(
-    orch.agents["performance"].forward
-)
-
-# GOOD: Verify output is correct
-result = orch(files_changed="x.py", diff="+y")
-assert "security" in result
-assert "performance" in result
 ```
