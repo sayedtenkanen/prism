@@ -1,106 +1,44 @@
-# Prism - Project Plan
+# Prism — DSPy Rewrite Plan
 
 ## Architecture
 
+LangGraph orchestrates a DSPy-powered review pipeline:
+
 ```
-fetch_pr → detect_languages → [parallel reviewers] → test_executor → aggregate → compare → HITL → output → storage
+fetch_pr → detect_languages → [review agents] → debate → judge → output
 ```
 
-LangGraph graph with Send API for parallel reviewers, retry 3x per node, human-in-the-loop before posting to Bitbucket.
+Each review agent is a `dspy.Module` with a `dspy.ChainOfThought` signature. A `DebateModule` cross-challenges findings. A `JudgeModule` aggregates into a deduplicated verdict.
 
 ## Phases
 
-### Core Infrastructure (Phases 1-6)
-- [x] Phase 1: Core models (`app/core/models.py`)
-- [x] Phase 2: Graph state (`app/graph/state.py`)
-- [x] Phase 3: Config (`app/core/config.py`)
-- [x] Phase 4: LLM client + prompts (`app/llm/`)
-- [x] Phase 5: Bitbucket client (`app/bitbucket/client.py`)
-- [x] Phase 6: Language detector (`app/graph/nodes/detect_languages.py`)
+### Completed
 
-### Reviewers (Phases 7-12)
-- [x] Phase 7: Base reviewer (`app/graph/nodes/reviewers/base.py`)
-- [x] Phase 8: Python reviewer
-- [x] Phase 9: Java reviewer
-- [x] Phase 10: C++ reviewer
-- [x] Phase 11: Ada reviewer
-- [x] Phase 12: Docs reviewer
+- [x] Phase 1: DSPy foundation — signatures, SCM protocol, Python 3.12 upgrade
+- [x] Phase 2: 6 agent modules + orchestrator + judge
+- [x] Phase 3: Judge + debate + confidence tracking (domain weights)
+- [x] Phase 4: LangGraph graph state rewrite + builder + pipeline nodes
+- [x] Phase 5: RAG layer — abstract store, PGVector, retriever
 
-### Pipeline Nodes (Phases 13-18)
-- [x] Phase 13: Test executor (`app/graph/nodes/test_executor.py`)
-- [ ] Phase 14: Aggregate / AI Judge (`app/graph/nodes/aggregate.py`)
-- [ ] Phase 15: Compare (`app/graph/nodes/compare.py`)
-- [ ] Phase 16: Human approval (`app/graph/nodes/human_approval.py`)
-- [ ] Phase 17: Output (`app/graph/nodes/output.py`)
-- [ ] Phase 18: Storage (`app/storage/`)
+### Remaining
 
-### Integration (Phases 19-21)
-- [ ] Phase 19: Graph builder (`app/graph/builder.py`)
-- [ ] Phase 20: CLI (`app/cli.py`)
-- [ ] Phase 21: Daemon (`app/daemon.py`)
-
-### CI/CD & Quality
-- [x] Ruff linting + formatting (line-length 120, Python 3.9)
-- [x] Mypy type checking
-- [x] Pytest with 90% coverage threshold
-- [x] CodeQL code scanning
-- [x] GitHub Actions CI
-- [x] Docker build + health check
-- [x] Pre-commit hooks
-
-## Configurable LLM Models
-
-Per reviewer node, configurable via `app/core/config.py` (env prefix `LLM_`):
-- `LLM_PYTHON_REVIEWER_MODEL` — default: `gpt-4o`
-- `LLM_JAVA_REVIEWER_MODEL` — default: `gpt-4o`
-- `LLM_CPP_REVIEWER_MODEL` — default: `gpt-4o`
-- `LLM_ADA_REVIEWER_MODEL` — default: `gpt-4o`
-- `LLM_DOCS_REVIEWER_MODEL` — default: `gpt-4o`
-- `LLM_JUDGE_MODEL` — default: `gpt-4o`
-- `LLM_TEMPERATURE` — default: `0.3`
-
-## Bitbucket Config
-
-Env prefix `BB_`:
-- `BB_URL` — default: `https://bitbucket.example.com`
-- `BB_TOKEN` — required
-
-## Test Config
-
-Env prefix `PRISM_TEST_`:
-- `PRISM_TEST_COVERAGE_THRESHOLD` — default: `80.0`
-- `PRISM_TEST_FAIL_ON_COVERAGE_BELOW` — default: `true`
-- `PRISM_TEST_FAIL_ON_TEST_FAILURE` — default: `true`
-- `PRISM_TEST_TIMEOUT` — default: `300` (seconds)
-
-Per-language thresholds:
-```python
-language_thresholds = {"python": 85.0, "java": 80.0, "cpp": 75.0, "ada": 70.0}
-project_thresholds = {}  # override per project_key
-```
-
-## Storage Config
-
-Env prefix `STORAGE_`:
-- `STORAGE_DB_PATH` — default: `prism.db`
-- `STORAGE_JSON_STORAGE_PATH` — default: `./reports`
-
-## App Config
-
-Env prefix `PRISM_`:
-- `PRISM_HITL_ENABLED` — default: `true`
-- `PRISM_RETRY_MAX_ATTEMPTS` — default: `3`
-- `PRISM_LOG_LEVEL` — default: `INFO`
+- [ ] Phase 6: Evaluation framework — metrics, benchmarks, DSPy optimizer integration
+- [ ] Phase 7: Observability — traces, cost tracking, latency
+- [ ] Phase 8: SIA-ready interfaces — memory store, feedback collector, dataset builder
+- [ ] Phase 9: CLI (Click) + Daemon (FastAPI + APScheduler)
+- [ ] Phase 10: CI/CD update — PostgreSQL+pgvector docker-compose, E2E tests
 
 ## Tech Stack
 
-- Python 3.9.6
-- LangGraph + LangChain
-- Pydantic v2
-- FastAPI + Uvicorn
-- Ruff (lint + format)
-- Mypy
-- Pytest + Coverage
-- CodeQL
-- GitHub Actions
-- Docker (multi-stage)
+- Python 3.12, DSPy 3.2, LangGraph, Pydantic v2
+- Ruff (lint + format), Mypy, Pytest (90% coverage)
+- GitHub Actions, CodeQL, Docker multi-stage
+
+## Key Design Decisions
+
+- **Hybrid LangGraph + DSPy**: LangGraph for workflow/state/retry/HITL, DSPy for review Signatures/Modules/optimization
+- **BaseAgent**: Shared `forward` + `parse_findings` — no duplicated parsing
+- **Domain weights**: Security 1.0, Architecture 0.9, Performance/Testing 0.8, Maintainability 0.7, Documentation 0.5
+- **Debate threshold**: Findings with confidence ≥ 0.5 are challenged by cross-domain agents
+- **SCMProvider enum**: Type-safe provider selection with runtime assertion in `fetch_pr`
+- **PGVectorStore**: Eagerly initialized `AsyncClient` for concurrency safety
