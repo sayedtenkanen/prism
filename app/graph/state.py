@@ -39,6 +39,11 @@ class PRReviewState(TypedDict, total=False):
     review_url: Optional[str]
     json_report_path: Optional[str]
 
+    # ── SIA (Self-Improving Agent) ──
+    memory_entry_id: Optional[str]
+    feedback_submitted: bool
+    dataset_entry_id: Optional[str]
+
     # ── Error tracking ──
     errors: list[str]
     retry_counts: dict[str, int]
@@ -76,6 +81,9 @@ def create_initial_state(
         approved=False,
         review_url=None,
         json_report_path=None,
+        memory_entry_id=None,
+        feedback_submitted=False,
+        dataset_entry_id=None,
         errors=[],
         retry_counts={},
     )
