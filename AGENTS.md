@@ -20,7 +20,7 @@ AI-powered multi-language PR review tool using LangGraph + DSPy with SIA (Self-I
 - **Line length**: 120 characters
 - **Formatter**: Ruff (not Black)
 - **Type hints**: Use native Python types (`list`, `dict`, `set`) — NOT `typing.List`, `typing.Dict`
-- **Optional**: Use `Optional[X]` from typing (since `X | None` requires Python 3.10+)
+- **Optional**: Use `X | None` syntax (Python 3.12) — NOT `Optional[X]`
 - **Imports**: Sorted by Ruff isort rules
 - **No comments**: Do not add comments unless explicitly requested
 

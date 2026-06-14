@@ -10,30 +10,46 @@ description: DSPy Signatures, Modules, ChainOfThought, and optimizers. Use when 
 ```python
 import dspy
 
-class ReviewSignature(dspy.Signature):
-    """Review code for issues."""
-    files_changed: str = dspy.InputField()
-    diff: str = dspy.InputField()
-    critical_findings: list[str] = dspy.OutputField()
-    major_findings: list[str] = dspy.OutputField()
-    minor_findings: list[str] = dspy.OutputField()
+class SecurityReview(dspy.Signature):
+    """Review code for security vulnerabilities following OWASP guidelines.
+
+    Check for: injection risks, authentication/authorization flaws,
+    secrets detection, dependency vulnerabilities, XSS, CSRF,
+    SQL injection, path traversal, and insecure configurations.
+    """
+
+    files_changed: str = dspy.InputField(desc="List of changed files with their paths and languages")
+    diff: str = dspy.InputField(desc="The unified diff of changes")
+    findings: str = dspy.OutputField(
+        desc="JSON array of findings, each with: finding, severity (critical/high/medium/low/info), "
+        "confidence (0.0-1.0), evidence, recommendation, file, line, cwe_id, owasp_category"
+    )
+
+
+class JudgeAggregation(dspy.Signature):
+    """Aggregate and deduplicate review findings from multiple agents into a single coherent verdict."""
+
+    all_findings: str = dspy.InputField(
+        desc="JSON object with agent_name keys, each containing a JSON array of findings"
+    )
+    summary: str = dspy.OutputField(desc="Executive summary of the review")
+    critical_findings: str = dspy.OutputField(desc="JSON array of critical severity findings")
+    major_findings: str = dspy.OutputField(desc="JSON array of high/major severity findings")
+    minor_findings: str = dspy.OutputField(desc="JSON array of medium/low/info severity findings")
+    approved: bool = dspy.OutputField(desc="Whether the PR is approved (true) or needs changes (false)")
 ```
 
 ## Modules
 
 ```python
-class ReviewAgent(dspy.Module):
+class SecurityReviewer(dspy.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.review = dspy.ChainOfThought(ReviewSignature)
+        self.review = dspy.ChainOfThought(SecurityReview)
 
     def forward(self, files_changed: str, diff: str) -> dict[str, Any]:
         result = self.review(files_changed=files_changed, diff=diff)
-        return {
-            "critical_findings": result.critical_findings,
-            "major_findings": result.major_findings,
-            "minor_findings": result.minor_findings,
-        }
+        return parse_findings(result.findings, "security")
 ```
 
 ## Optimizers
@@ -53,16 +69,18 @@ optimizer = dspy.LabeledFewShot(k=16)
 
 ## Key Patterns
 
-- No embedded prompt strings
-- Signatures define I/O contracts
-- Modules compose signatures
-- ChainOfThought adds reasoning
+- No embedded prompt strings — Signatures define I/O contracts
+- Docstrings contain review context and check lists
+- Modules compose signatures with `dspy.ChainOfThought`
+- Agents inherit `BaseAgent` and implement `_build_review_signature`
+- `parse_findings` helper parses JSON output into structured findings
 - Optimizers improve prompts from examples
+- InputField `desc` parameter provides field descriptions
 
 ## Checklist
 
 Before writing DSPy code:
 
 ```bash
-mypy app/
+ruff check . && ruff format --check . && mypy app/ && pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=90
 ```

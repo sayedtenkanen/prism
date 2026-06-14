@@ -43,7 +43,7 @@ VERIFY: Run test suite + lint
 After all comments addressed:
 
 ```bash
-ruff check . && ruff format --check . && mypy app/ && pytest tests/ -v --tb=short
+ruff check . && ruff format --check . && mypy app/ && pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=90
 ```
 
 ## Prism-Specific Patterns

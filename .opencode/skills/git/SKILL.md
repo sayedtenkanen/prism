@@ -37,7 +37,7 @@ chore(deps): update dspy to 3.2
 
 ## Branch Protection
 
-- Direct push to `main` blocked
+- Direct push to `main` blocked (CodeQL blocks direct push)
 - All changes via PRs
 - CodeQL must pass before merge
 
@@ -47,6 +47,7 @@ chore(deps): update dspy to 3.2
 git status
 git diff --staged
 git log --oneline -5
+ruff check . && ruff format --check . && mypy app/ && pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=90
 ```
 
 ## PR Template
@@ -63,3 +64,10 @@ git log --oneline -5
 ## Related
 - Closes #123
 ```
+
+## Prism-Specific Patterns
+
+- Branch naming: `feature/phase-X`, `fix/issue-123`, `chore/update-deps`
+- All PRs must pass CI checks (ruff, mypy, pytest, codeql)
+- Use `gh` CLI for PR management
+- Squash merge to maintain clean history

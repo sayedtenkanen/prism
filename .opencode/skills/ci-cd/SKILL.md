@@ -5,22 +5,100 @@ description: GitHub Actions workflows, linting, testing, and CI/CD patterns. Use
 
 # CI/CD Conventions
 
-## Prism CI Pipeline
+## Prism CI Pipeline (GitHub Actions)
 
 ```yaml
-# .github/workflows/ci.yml
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
 jobs:
   lint:
-    - ruff check .
-    - ruff format --check .
-    - mypy app/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy app/
+
   test:
-    - pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=90
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=90
+
   security:
-    - gitleaks detect
-    - codeql analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+      - uses: github/codeql-action/analyze@v3
+
   build:
-    - docker build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t prism .
+```
+
+## Jenkins Pipeline
+
+```groovy
+// Jenkinsfile
+pipeline {
+    agent any
+    environment {
+        PYTHON_VERSION = '3.12'
+    }
+    stages {
+        stage('Setup') {
+            steps {
+                sh 'python${PYTHON_VERSION} -m venv venv'
+                sh 'venv/bin/pip install -e ".[dev]"'
+            }
+        }
+        stage('Lint') {
+            steps {
+                sh 'venv/bin/ruff check .'
+                sh 'venv/bin/ruff format --check .'
+                sh 'venv/bin/mypy app/'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'venv/bin/pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=90'
+            }
+        }
+        stage('Security') {
+            steps {
+                sh 'gitleaks detect'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'docker build -t prism .'
+            }
+        }
+    }
+}
 ```
 
 ## Local Pre-commit
@@ -31,14 +109,15 @@ ruff check . && ruff format --check . && mypy app/ && pytest tests/ -v --tb=shor
 
 ## Branch Protection
 
-- Direct push to `main` blocked
+- Direct push to `main` blocked (CodeQL blocks direct push)
 - All changes via PRs
 - CodeQL must pass before merge
+- Ruff, mypy, pytest checks required
 
 ## Checklist
 
 Before pushing:
 
 ```bash
-ruff check . && ruff format --check . && mypy app/ && pytest tests/ -v --tb=short
+ruff check . && ruff format --check . && mypy app/ && pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=90
 ```
