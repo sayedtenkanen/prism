@@ -9,7 +9,7 @@ description: Python 3.12 conventions and patterns for Prism. Use when writing Py
 
 - Python 3.12+ (required by DSPy)
 - Use native types: `list`, `dict`, `set`, `tuple` (NOT `typing.List`)
-- Use `Optional[X]` from typing (since `X | None` requires 3.10+)
+- Use `X | None` syntax (available since Python 3.10)
 
 ## Type Hints
 

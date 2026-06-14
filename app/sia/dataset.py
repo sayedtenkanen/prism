@@ -33,19 +33,22 @@ class DatasetBuilder:
         repo: str | None = None,
         language: str | None = None,
         min_feedback: int = 1,
+        limit: int = 1000,
     ) -> list[DatasetEntry]:
         if repo:
-            entries = self.memory_store.get_by_repo(repo, limit=1000)
+            entries = self.memory_store.get_by_repo(repo, limit=limit)
         elif language:
-            entries = self.memory_store.search_by_language(language, limit=1000)
+            entries = self.memory_store.search_by_language(language, limit=limit)
         else:
-            entries = self.memory_store.get_recent(limit=1000)
+            entries = self.memory_store.get_recent(limit=limit)
 
         dataset: list[DatasetEntry] = []
         for entry in entries:
             feedback_items = []
             for finding in entry.findings:
-                finding_id = finding.get("finding_id", finding.get("finding", ""))
+                finding_id = finding.get("finding_id") or finding.get("finding")
+                if not finding_id:
+                    continue
                 fb = self.feedback_collector.get_for_finding(finding_id)
                 if len(fb) >= min_feedback:
                     feedback_items.append((finding, fb))
