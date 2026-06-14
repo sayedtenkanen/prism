@@ -53,12 +53,14 @@ class LatencyTracker:
 
         result: list[dict[str, Any]] = []
         for name, total in node_totals.items():
-            result.append({
-                "node_name": name,
-                "total_ms": round(total, 2),
-                "avg_ms": round(total / node_counts[name], 2),
-                "count": node_counts[name],
-            })
+            result.append(
+                {
+                    "node_name": name,
+                    "total_ms": round(total, 2),
+                    "avg_ms": round(total / node_counts[name], 2),
+                    "count": node_counts[name],
+                }
+            )
         result.sort(key=lambda x: x["total_ms"], reverse=True)
         return result[:top_n]
 
