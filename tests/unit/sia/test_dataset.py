@@ -59,6 +59,51 @@ class TestDatasetBuilder:
         assert len(dataset) == 1
         assert len(dataset[0].expected_findings) == 1
 
+    def test_build_from_memory_finding_id_collision(self):
+        memory = MemoryStore()
+        feedback = FeedbackCollector()
+        builder = DatasetBuilder(memory, feedback)
+
+        entry = MemoryEntry(
+            pr_id="pr-1",
+            repo="org/repo",
+            findings=[
+                {"severity": "high"},
+                {"severity": "low"},
+            ],
+            languages=["python"],
+        )
+        memory.add(entry)
+
+        fb = FindingFeedback(finding_id="", action=FeedbackAction.ACCEPT)
+        feedback.submit(fb)
+
+        dataset = builder.build_from_memory()
+        assert len(dataset) == 0
+
+    def test_build_from_memory_finding_id_no_collision(self):
+        memory = MemoryStore()
+        feedback = FeedbackCollector()
+        builder = DatasetBuilder(memory, feedback)
+
+        entry = MemoryEntry(
+            pr_id="pr-1",
+            repo="org/repo",
+            findings=[
+                {"finding_id": "f-1", "severity": "high"},
+                {"finding_id": "f-2", "severity": "low"},
+            ],
+            languages=["python"],
+        )
+        memory.add(entry)
+
+        fb1 = FindingFeedback(finding_id="f-1", action=FeedbackAction.ACCEPT)
+        feedback.submit(fb1)
+
+        dataset = builder.build_from_memory()
+        assert len(dataset) == 1
+        assert len(dataset[0].expected_findings) == 1
+
     def test_build_from_memory_min_feedback(self):
         memory = MemoryStore()
         feedback = FeedbackCollector()
@@ -77,6 +122,25 @@ class TestDatasetBuilder:
 
         dataset = builder.build_from_memory(min_feedback=2)
         assert len(dataset) == 0
+
+    def test_build_from_memory_custom_limit(self):
+        memory = MemoryStore()
+        feedback = FeedbackCollector()
+        builder = DatasetBuilder(memory, feedback)
+
+        for i in range(5):
+            entry = MemoryEntry(
+                pr_id=f"pr-{i}",
+                repo="org/repo",
+                findings=[{"finding": f"x-{i}"}],
+                languages=["python"],
+            )
+            memory.add(entry)
+            fb = FindingFeedback(finding_id=f"x-{i}", action=FeedbackAction.ACCEPT)
+            feedback.submit(fb)
+
+        dataset = builder.build_from_memory(limit=2)
+        assert len(dataset) == 2
 
     def test_build_from_memory_with_only_non_accept_feedback(self):
         memory = MemoryStore()

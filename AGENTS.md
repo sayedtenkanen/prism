@@ -63,7 +63,7 @@ app/
 - SIA: Memory entries use `repo` as `{owner}/{repo}` format
 - SIA: Feedback actions are `FeedbackAction` enum (accept/reject/modify)
 - SIA: Dataset entries include `language`, `files_changed`, `diff`, `findings`, `feedback` fields
-- SIA: Training dataset balance by language using `DatasetBuilder.filter_by_language()`
+- SIA: Training datasets balanced by language using `DatasetBuilder.filter_by_language()`
 
 ## Testing
 
