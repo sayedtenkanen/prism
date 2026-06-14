@@ -1,6 +1,6 @@
 # Prism
 
-Pull Request Inspection, Synthesis & Monitoring — an AI-powered multi-language PR review tool using DSPy and LangGraph.
+Pull Request Inspection, Synthesis & Monitoring — an AI-powered multi-language PR review tool with self-improving agent capabilities using DSPy and LangGraph.
 
 ## Features
 
@@ -9,6 +9,7 @@ Pull Request Inspection, Synthesis & Monitoring — an AI-powered multi-language
 - **Confidence tracking**: Domain-weighted scoring with per-agent expertise weights
 - **AI Judge**: Aggregates and deduplicates findings into a single verdict
 - **LangGraph pipeline**: `fetch_pr → detect → review → debate → judge → output`
+- **SIA (Self-Improving Agent)**: Feedback loops that collect reviewer actions, build training datasets, and optimize agent prompts via DSPy optimizers
 - **RAG layer**: Store and retrieve past review findings for context
 - **Human-in-the-loop**: Approval gate before posting results
 - **GitHub integration**: Fetches PRs, posts summary comments, stores JSON reports
@@ -99,6 +100,15 @@ PR Input
 ┌─────────────┐
 │   output    │  JSON report + optional PR comment
 └─────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────┐
+│                SIA Feedback Loop                    │
+│  memory_store ← findings                           │
+│  feedback ← reviewer_actions (accept/reject/modify)│
+│  dataset_builder → training_data                   │
+│  dspy_optimizer ← training_data                    │
+└─────────────────────────────────────────────────────┘
 ```
 
 ### Key Modules
@@ -114,6 +124,10 @@ PR Input
 | `app/rag/` | RAG store interface + PGVector implementation |
 | `app/scm/` | SCM client protocol + GitHub implementation |
 | `app/core/config.py` | Pydantic settings (LLM, DSPy, SCM, Test, Storage) |
+| `app/sia/memory.py` | `MemoryStore` — persistent review history with search |
+| `app/sia/feedback.py` | `FeedbackCollector` — reviewer actions (accept/reject/modify) |
+| `app/sia/dataset.py` | `DatasetBuilder` — training data from memory + feedback |
+| `app/eval/optimizer.py` | `ReviewOptimizer` — DSPy BootstrapFewShot/LabeledFewShot |
 
 ## Environment Variables
 
