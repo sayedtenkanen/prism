@@ -1,24 +1,26 @@
 # Prism
 
-Pull Request Inspection, Synthesis & Monitoring — an AI-powered multi-language PR review tool.
+Pull Request Inspection, Synthesis & Monitoring — an AI-powered multi-language PR review tool using DSPy and LangGraph.
 
 ## Features
 
-- **Multi-language support**: Python, Java, C++, Ada, Markdown
-- **Parallel reviewers**: Language-specific reviewers run concurrently via LangGraph Send API
-- **Configurable LLM models**: Different models per reviewer node
-- **Test integration**: Runs pytest/Maven/CTest, enforces per-language coverage thresholds
-- **AI Judge**: Deduplicates and summarizes all reviewer outputs into a single verdict
-- **Human-in-the-loop**: Approval gate before posting results to Bitbucket
-- **Bitbucket integration**: Fetches PRs, posts summary comments, stores JSON artifacts
-- **CodeQL scanning**: Automated security analysis in CI
+- **DSPy-powered agents**: 6 specialized review agents (Security, Performance, Maintainability, Testing, Architecture, Documentation) with ChainOfThought reasoning
+- **Multi-agent debate**: Agents challenge each other's findings with evidence-based reasoning
+- **Confidence tracking**: Domain-weighted scoring with per-agent expertise weights
+- **AI Judge**: Aggregates and deduplicates findings into a single verdict
+- **LangGraph pipeline**: `fetch_pr → detect → review → debate → judge → output`
+- **RAG layer**: Store and retrieve past review findings for context
+- **Human-in-the-loop**: Approval gate before posting results
+- **GitHub integration**: Fetches PRs, posts summary comments, stores JSON reports
+- **Multi-language**: Python, Java, C++, Ada, Markdown
+- **Test integration**: pytest/Maven/CTest with per-language coverage thresholds
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.9+
-- Bitbucket Server (on-prem) access
+- Python 3.12+
+- GitHub token (with repo access)
 - OpenAI API key (or compatible provider)
 
 ### Installation
@@ -26,78 +28,137 @@ Pull Request Inspection, Synthesis & Monitoring — an AI-powered multi-language
 ```bash
 git clone https://github.com/sayedtenkanen/prism.git
 cd prism
+python -m venv venv
+source venv/bin/activate
 pip install -e ".[dev]"
 ```
 
 ### Configuration
 
-Set environment variables:
-
 ```bash
 # LLM
 export LLM_API_KEY="your-openai-api-key"
 export LLM_PROVIDER="openai"
-export LLM_PYTHON_REVIEWER_MODEL="gpt-4o"
 
-# Bitbucket
-export BB_URL="https://bitbucket.example.com"
-export BB_TOKEN="your-bitbucket-token"
+# GitHub
+export SCM_GITHUB_TOKEN="your-github-token"
 ```
 
 Or create a `.env` file:
 
 ```env
 LLM_API_KEY=your-openai-api-key
-BB_URL=https://bitbucket.example.com
-BB_TOKEN=your-bitbucket-token
+SCM_GITHUB_TOKEN=your-github-token
 ```
 
 ### Running
 
 ```bash
-# Run full pipeline
-python -m app.cli review --project KEY --repo slug --pr 123
+# Run the graph pipeline
+python -c "
+from app.graph.builder import get_graph
+from app.graph.state import create_initial_state
+import asyncio
 
-# Start daemon mode
-python -m app.daemon
+state = create_initial_state(owner='octocat', repo='hello-world', pr_number=1, scm_token='...')
+graph = get_graph()
+result = asyncio.run(graph.ainvoke(state))
+print(result['summary'])
+"
 ```
 
 ## Architecture
 
-See [PLAN.md](PLAN.md) for full architecture details, pipeline nodes, and configuration reference.
+```
+PR Input
+    │
+    ▼
+┌─────────────┐
+│  fetch_pr   │  GitHub API → metadata, diff, files
+└─────────────┘
+    │
+    ▼
+┌──────────────┐
+│ detect_languages │  Language detection from filenames
+└──────────────┘
+    │
+    ▼
+┌──────────────┐
+│  run_review  │  DSPy FullReviewPipeline
+│              │  ├─ 6 agents (parallel review)
+│              │  ├─ DebateModule (cross-challenge)
+│              │  └─ JudgeModule (aggregation)
+└──────────────┘
+    │
+    ▼
+┌──────────────┐
+│ [human_approval] │  Optional HITL gate
+└──────────────┘
+    │
+    ▼
+┌─────────────┐
+│   output    │  JSON report + optional PR comment
+└─────────────┘
+```
+
+### Key Modules
+
+| Module | Purpose |
+|--------|---------|
+| `app/agents/signatures.py` | DSPy Signatures (input/output specs for LLM reasoning) |
+| `app/agents/base.py` | `BaseAgent` with shared `parse_findings` helper |
+| `app/agents/{security,performance,...}.py` | 6 specialized review agents |
+| `app/agents/modules.py` | `ReviewOrchestrator`, `DebateModule`, `JudgeModule`, `FullReviewPipeline` |
+| `app/graph/builder.py` | LangGraph pipeline wiring |
+| `app/graph/nodes/` | Pipeline node implementations |
+| `app/rag/` | RAG store interface + PGVector implementation |
+| `app/scm/` | SCM client protocol + GitHub implementation |
+| `app/core/config.py` | Pydantic settings (LLM, DSPy, SCM, Test, Storage) |
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_API_KEY` | — | OpenAI API key |
+| `LLM_PROVIDER` | `openai` | LLM provider |
+| `LLM_PYTHON_REVIEWER_MODEL` | `gpt-4o` | Model for Python review |
+| `LLM_JUDGE_MODEL` | `gpt-4o` | Model for judge aggregation |
+| `LLM_TEMPERATURE` | `0.3` | LLM temperature |
+| `SCM_PROVIDER` | `github` | SCM provider |
+| `SCM_GITHUB_TOKEN` | — | GitHub personal access token |
+| `DSPY_OPTIMIZER` | `bootstrapFewShot` | DSPy optimizer algorithm |
+| `PRISM_HITL_ENABLED` | `true` | Enable human-in-the-loop |
+| `PRISM_RETRY_MAX_ATTEMPTS` | `3` | Max retries per node |
+| `PRISM_LOG_LEVEL` | `INFO` | Log level |
+| `STORAGE_DB_PATH` | `prism.db` | SQLite database path |
+| `STORAGE_JSON_STORAGE_PATH` | `./reports` | JSON report output directory |
 
 ## Development
 
-### Setup
-
 ```bash
+# Install dev dependencies
 pip install -e ".[dev]"
-pre-commit install
-```
 
-### Running Tests
-
-```bash
-pytest
-pytest --cov=app --cov-report=html
-```
-
-### Linting
-
-```bash
+# Run checks
 ruff check .
 ruff format --check .
 mypy app/
+pytest tests/ -v --tb=short --cov=app --cov-report=term --cov-fail-under=90
 ```
 
-### CI/CD
+## Tech Stack
 
-GitHub Actions runs on push to `main`/`develop` and PRs:
-- Ruff lint + format check
-- Mypy type checking
-- Pytest with 90% coverage threshold
-- CodeQL security scanning
-- Docker build + health check
+- **Python 3.12** — runtime
+- **DSPy 3.2** — LLM program framework (Signatures, Modules, ChainOfThought)
+- **LangGraph** — workflow orchestration and state management
+- **Pydantic v2** — settings and data validation
+- **FastAPI + Uvicorn** — API server
+- **Ruff** — linting and formatting (line-length 120)
+- **Mypy** — static type checking
+- **Pytest + Coverage** — testing (90% threshold)
+- **GitHub Actions** — CI/CD
+- **CodeQL** — code scanning
+- **Docker** — multi-stage build
 
 ## License
 
