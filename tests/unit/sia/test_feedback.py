@@ -42,8 +42,12 @@ class TestFeedbackCollector:
         collector.submit(fb1)
         collector.submit(fb2)
         collector.submit(fb3)
+
         results = collector.get_for_finding("f-1")
         assert len(results) == 2
+
+        missing_results = collector.get_for_finding("missing")
+        assert missing_results == []
 
     def test_get_by_action(self):
         collector = FeedbackCollector()
