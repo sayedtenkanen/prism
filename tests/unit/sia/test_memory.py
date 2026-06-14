@@ -79,8 +79,13 @@ class TestMemoryStore:
         store.add(MemoryEntry(pr_id="pr-1", repo="org/repo", languages=["python", "java"]))
         store.add(MemoryEntry(pr_id="pr-2", repo="org/repo", languages=["java"]))
         store.add(MemoryEntry(pr_id="pr-3", repo="org/repo", languages=["python"]))
+
         results = store.search_by_language("python")
         assert len(results) == 2
+
+        limited_results = store.search_by_language("python", limit=1)
+        assert len(limited_results) == 1
+        assert limited_results[0].pr_id in {"pr-1", "pr-3"}
 
     def test_get_recent(self):
         store = MemoryStore()
