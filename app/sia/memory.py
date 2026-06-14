@@ -23,13 +23,14 @@ class MemoryStore:
     def __init__(self, max_entries: int = 1000) -> None:
         self.max_entries = max_entries
         self._entries: list[MemoryEntry] = []
-        self._index: dict[str, list[int]] = {}
+        self._repo_index: dict[str, list[int]] = {}
+        self._pr_index: dict[str, list[int]] = {}
 
     def add(self, entry: MemoryEntry) -> None:
         self._entries.append(entry)
         idx = len(self._entries) - 1
-        self._index.setdefault(entry.repo, []).append(idx)
-        self._index.setdefault(entry.pr_id, []).append(idx)
+        self._repo_index.setdefault(entry.repo, []).append(idx)
+        self._pr_index.setdefault(entry.pr_id, []).append(idx)
         if len(self._entries) > self.max_entries:
             self._evict()
 
@@ -40,11 +41,11 @@ class MemoryStore:
         return None
 
     def get_by_pr(self, pr_id: str) -> list[MemoryEntry]:
-        indices = self._index.get(pr_id, [])
+        indices = self._pr_index.get(pr_id, [])
         return [self._entries[i] for i in indices if i < len(self._entries)]
 
     def get_by_repo(self, repo: str, limit: int = 10) -> list[MemoryEntry]:
-        indices = self._index.get(repo, [])
+        indices = self._repo_index.get(repo, [])
         return [self._entries[i] for i in indices[-limit:] if i < len(self._entries)]
 
     def search_by_language(self, language: str, limit: int = 10) -> list[MemoryEntry]:
@@ -67,7 +68,8 @@ class MemoryStore:
 
     def clear(self) -> None:
         self._entries.clear()
-        self._index.clear()
+        self._repo_index.clear()
+        self._pr_index.clear()
 
     def _evict(self) -> None:
         excess = len(self._entries) - self.max_entries
@@ -76,10 +78,11 @@ class MemoryStore:
             self._rebuild_index()
 
     def _rebuild_index(self) -> None:
-        self._index.clear()
+        self._repo_index.clear()
+        self._pr_index.clear()
         for i, entry in enumerate(self._entries):
-            self._index.setdefault(entry.repo, []).append(i)
-            self._index.setdefault(entry.pr_id, []).append(i)
+            self._repo_index.setdefault(entry.repo, []).append(i)
+            self._pr_index.setdefault(entry.pr_id, []).append(i)
 
     def get_summary(self) -> dict[str, Any]:
         repos = set()

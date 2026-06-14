@@ -107,6 +107,17 @@ class TestFeedbackCollector:
         assert summary["by_reviewer"]["alice"] == 1
         assert summary["by_reviewer"]["bob"] == 1
 
+    def test_get_summary_unnamed_reviewers(self):
+        collector = FeedbackCollector()
+        collector.submit(FindingFeedback(finding_id="f-1", action=FeedbackAction.ACCEPT, reviewer="alice"))
+        collector.submit(FindingFeedback(finding_id="f-2", action=FeedbackAction.REJECT))
+        collector.submit(FindingFeedback(finding_id="f-3", action=FeedbackAction.MODIFY))
+        summary = collector.get_summary()
+        assert summary["total_feedback"] == 3
+        assert summary["by_reviewer"]["alice"] == 1
+        assert "" not in summary["by_reviewer"]
+        assert summary["unnamed_reviewer_count"] == 2
+
     def test_clear(self):
         collector = FeedbackCollector()
         collector.submit(FindingFeedback(finding_id="f-1", action=FeedbackAction.ACCEPT))

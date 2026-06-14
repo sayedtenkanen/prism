@@ -129,3 +129,18 @@ class TestMemoryStore:
         assert summary["unique_repos"] == 2
         assert summary["languages"]["python"] == 2
         assert summary["languages"]["java"] == 1
+
+    def test_repo_and_pr_index_isolation(self):
+        store = MemoryStore()
+        entry_a = MemoryEntry(pr_id="shared-id", repo="org/repo-x")
+        entry_b = MemoryEntry(pr_id="pr-other", repo="shared-id")
+        store.add(entry_a)
+        store.add(entry_b)
+
+        by_repo = store.get_by_repo("shared-id")
+        by_pr = store.get_by_pr("shared-id")
+
+        assert len(by_repo) == 1
+        assert by_repo[0].entry_id == entry_b.entry_id
+        assert len(by_pr) == 1
+        assert by_pr[0].entry_id == entry_a.entry_id

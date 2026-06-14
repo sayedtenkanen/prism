@@ -78,6 +78,25 @@ class TestDatasetBuilder:
         dataset = builder.build_from_memory(min_feedback=2)
         assert len(dataset) == 0
 
+    def test_build_from_memory_with_only_non_accept_feedback(self):
+        memory = MemoryStore()
+        feedback = FeedbackCollector()
+        builder = DatasetBuilder(memory, feedback)
+
+        entry = MemoryEntry(
+            pr_id="pr-1",
+            repo="org/repo",
+            findings=[{"finding": "x", "severity": "high"}],
+            languages=["python"],
+        )
+        memory.add(entry)
+
+        fb_reject = FindingFeedback(finding_id="x", action=FeedbackAction.REJECT)
+        feedback.submit(fb_reject)
+
+        dataset = builder.build_from_memory()
+        assert dataset == []
+
     def test_build_from_memory_filter_by_repo(self):
         memory = MemoryStore()
         feedback = FeedbackCollector()
@@ -130,6 +149,25 @@ class TestDatasetBuilder:
         assert len(entry.expected_findings) == 1
         assert entry.expected_findings[0]["finding"] == "x"
 
+    def test_build_from_findings_invalid_indices(self):
+        memory = MemoryStore()
+        feedback = FeedbackCollector()
+        builder = DatasetBuilder(memory, feedback)
+
+        findings = [
+            {"finding": "x", "severity": "high"},
+            {"finding": "y", "severity": "low"},
+        ]
+        with pytest.raises(ValueError, match="Invalid indices"):
+            builder.build_from_findings(
+                pr_id="pr-1",
+                repo="org/repo",
+                files_changed="app.py",
+                diff="+new line",
+                findings=findings,
+                accepted_indices=[0, 5],
+            )
+
     def test_export_and_import_json(self, tmp_path):
         memory = MemoryStore()
         feedback = FeedbackCollector()
@@ -145,6 +183,26 @@ class TestDatasetBuilder:
         loaded = builder.import_json(path)
         assert len(loaded) == 2
         assert loaded[0].entry_id == "e-1"
+
+    def test_export_and_import_json_utf8(self, tmp_path):
+        memory = MemoryStore()
+        feedback = FeedbackCollector()
+        builder = DatasetBuilder(memory, feedback)
+
+        dataset = [
+            DatasetEntry(
+                entry_id="e-1",
+                files_changed="a.py",
+                diff="+ new code with unicode: café, naïve, résumé",
+                languages=["python"],
+            ),
+        ]
+
+        path = tmp_path / "dataset_utf8.json"
+        builder.export_json(dataset, path)
+        loaded = builder.import_json(path)
+        assert len(loaded) == 1
+        assert loaded[0].diff == "+ new code with unicode: café, naïve, résumé"
 
     def test_import_json_nonexistent(self):
         memory = MemoryStore()
@@ -212,3 +270,5 @@ class TestDatasetBuilder:
         builder = DatasetBuilder(memory, feedback)
         stats = builder.get_statistics([])
         assert stats["total_entries"] == 0
+        assert "avg_findings_per_entry" in stats
+        assert stats["avg_findings_per_entry"] == 0.0

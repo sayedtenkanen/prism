@@ -68,14 +68,19 @@ class FeedbackCollector:
     def get_summary(self) -> dict[str, Any]:
         by_action: dict[str, int] = {}
         by_reviewer: dict[str, int] = {}
+        unnamed_count = 0
         for f in self._feedback:
             by_action[f.action.value] = by_action.get(f.action.value, 0) + 1
-            by_reviewer[f.reviewer] = by_reviewer.get(f.reviewer, 0) + 1
+            if f.reviewer:
+                by_reviewer[f.reviewer] = by_reviewer.get(f.reviewer, 0) + 1
+            else:
+                unnamed_count += 1
 
         return {
             "total_feedback": len(self._feedback),
             "by_action": by_action,
             "by_reviewer": by_reviewer,
+            "unnamed_reviewer_count": unnamed_count,
             "acceptance_rate": self.get_acceptance_rate(),
             "rejection_rate": self.get_rejection_rate(),
         }

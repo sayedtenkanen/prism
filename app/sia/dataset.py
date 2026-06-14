@@ -59,6 +59,9 @@ class DatasetBuilder:
                 if accepted:
                     expected.append(finding)
 
+            if not expected:
+                continue
+
             dataset.append(
                 DatasetEntry(
                     entry_id=entry.entry_id,
@@ -81,7 +84,10 @@ class DatasetBuilder:
         findings: list[dict[str, Any]],
         accepted_indices: list[int],
     ) -> DatasetEntry:
-        expected = [findings[i] for i in accepted_indices if i < len(findings)]
+        invalid_indices = [i for i in accepted_indices if i < 0 or i >= len(findings)]
+        if invalid_indices:
+            raise ValueError(f"Invalid indices {invalid_indices} for findings list of length {len(findings)}")
+        expected = [findings[i] for i in accepted_indices]
         return DatasetEntry(
             entry_id=pr_id,
             files_changed=files_changed,
@@ -93,14 +99,14 @@ class DatasetBuilder:
     def export_json(self, dataset: list[DatasetEntry], path: str | Path) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump([entry.model_dump() for entry in dataset], f, indent=2)
 
     def import_json(self, path: str | Path) -> list[DatasetEntry]:
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Dataset file not found: {path}")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         return [DatasetEntry(**item) for item in data]
 
@@ -118,9 +124,6 @@ class DatasetBuilder:
         return result
 
     def get_statistics(self, dataset: list[DatasetEntry]) -> dict[str, Any]:
-        if not dataset:
-            return {"total_entries": 0, "total_findings": 0, "languages": {}}
-
         total_findings = sum(len(e.expected_findings) for e in dataset)
         languages: dict[str, int] = {}
         for entry in dataset:
@@ -130,6 +133,6 @@ class DatasetBuilder:
         return {
             "total_entries": len(dataset),
             "total_findings": total_findings,
-            "avg_findings_per_entry": round(total_findings / len(dataset), 2),
+            "avg_findings_per_entry": round(total_findings / len(dataset), 2) if dataset else 0.0,
             "languages": languages,
         }
