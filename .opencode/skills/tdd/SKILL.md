@@ -51,9 +51,11 @@ ruff check . && ruff format --check . && mypy app/ && pytest tests/ -v --tb=shor
 ### Prism Conventions
 
 - All graph nodes are async functions
-- Reviewers inherit from `BaseReviewer` and implement `language`, `system_prompt`, and `_build_user_prompt`
-- `parse_llm_response` and `_parse_severity` are shared in `BaseReviewer` — do not duplicate in subclasses
-- Severity comparison must use `ReviewSeverity.CRITICAL` enum, NOT string `"critical"`
+- Agents inherit from `BaseAgent` and use `dspy.ChainOfThought` signatures
+- `parse_findings` is shared in `BaseAgent` — do not duplicate in subclasses
+- DSPy Signatures define review interfaces (e.g., `SecurityReview`, `PerformanceReview`)
+- `ReviewOrchestrator` runs all agents, `DebateModule` cross-challenges, `JudgeModule` aggregates
+- Domain weights: Security 1.0, Architecture 0.9, Performance/Testing 0.8, Maintainability 0.7, Documentation 0.5
 - Config uses nested Pydantic models with `env_prefix`
 - Native Python types (`list`, `dict`) not `typing.List`/`typing.Dict`
 - Line length: 120 characters
