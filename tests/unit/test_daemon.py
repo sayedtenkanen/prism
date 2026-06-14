@@ -1,4 +1,5 @@
 import pytest
+from apscheduler.jobstores.base import JobLookupError
 
 from app.daemon import Daemon, ReviewJob
 
@@ -64,7 +65,7 @@ def test_daemon_remove_job() -> None:
 
 def test_daemon_remove_nonexistent_job() -> None:
     daemon = Daemon()
-    with pytest.raises(KeyError):
+    with pytest.raises(JobLookupError):
         daemon.remove_review_job("nonexistent")
 
 

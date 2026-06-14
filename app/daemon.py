@@ -32,8 +32,11 @@ class Daemon:
 
     def stop(self) -> None:
         """Stop the scheduler."""
-        self.scheduler.shutdown()
-        logger.info("Daemon stopped")
+        if getattr(self.scheduler, "running", False):
+            self.scheduler.shutdown()
+            logger.info("Daemon stopped")
+        else:
+            logger.info("Daemon stop requested but scheduler is not running")
 
     def add_review_job(
         self,

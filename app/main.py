@@ -1,10 +1,14 @@
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+from apscheduler.jobstores.base import JobLookupError
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from app.daemon import ReviewJob, daemon
+
+logger = logging.getLogger(__name__)
 
 HEALTH_RESPONSE: dict[str, str] = {"status": "healthy"}
 
@@ -89,7 +93,8 @@ async def review_pr(request: ReviewRequest) -> ReviewResponse:
     try:
         result = await graph.ainvoke(initial_state)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Review execution failed")
+        raise HTTPException(status_code=500, detail="Review execution failed") from e
 
     return ReviewResponse(
         summary=result.get("summary"),
@@ -114,17 +119,45 @@ async def create_job(request: JobRequest) -> JobResponse:
 
     job_id = f"{request.owner}/{request.repo}#{request.pr_number}"
 
+    if request.trigger not in {"interval", "cron"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid trigger '{request.trigger}'. Supported values are 'interval' and 'cron'.",
+        )
+
     trigger_kwargs: dict[str, str | int] = {}
-    if request.trigger == "interval" and request.interval_seconds:
+
+    if request.trigger == "interval":
+        if request.interval_seconds is None or request.interval_seconds <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="For 'interval' trigger, 'interval_seconds' must be a positive integer.",
+            )
         trigger_kwargs["seconds"] = request.interval_seconds
-    elif request.trigger == "cron" and request.cron_expression:
-        parts = request.cron_expression.split()
+
+    elif request.trigger == "cron":
+        if not request.cron_expression:
+            raise HTTPException(
+                status_code=400,
+                detail="For 'cron' trigger, 'cron_expression' is required.",
+            )
+
+        parts = [p for p in request.cron_expression.split() if p]
+        if len(parts) != 5:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid 'cron_expression'. Expected 5 fields separated by spaces: "
+                    "'minute hour day month day_of_week'."
+                ),
+            )
+
         trigger_kwargs = {
-            "minute": parts[0] if len(parts) > 0 else "*",
-            "hour": parts[1] if len(parts) > 1 else "*",
-            "day": parts[2] if len(parts) > 2 else "*",
-            "month": parts[3] if len(parts) > 3 else "*",
-            "day_of_week": parts[4] if len(parts) > 4 else "*",
+            "minute": parts[0],
+            "hour": parts[1],
+            "day": parts[2],
+            "month": parts[3],
+            "day_of_week": parts[4],
         }
 
     daemon.add_review_job(job_id, job, trigger=request.trigger, **trigger_kwargs)
@@ -136,7 +169,7 @@ async def create_job(request: JobRequest) -> JobResponse:
 async def delete_job(job_id: str) -> dict[str, str]:
     try:
         daemon.remove_review_job(job_id)
-    except Exception as e:
+    except JobLookupError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
     return {"status": "deleted"}
