@@ -85,6 +85,11 @@ class TestTracer:
         total = tracer.get_total_duration_ms()
         assert total >= 0.0
 
+    def test_get_total_duration_ms_no_spans(self):
+        tracer = Tracer()
+        total = tracer.get_total_duration_ms()
+        assert total == 0.0
+
     def test_get_trace_summary(self):
         tracer = Tracer()
         span = tracer.start_span("test", kind=SpanKind.LLM)
