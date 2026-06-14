@@ -67,3 +67,4 @@ app/
 - Integration tests: `tests/integration/`
 - Coverage threshold: 90% (enforced in CI)
 - Async tests use `pytest-asyncio` with `asyncio_mode = "auto"`
+- **TDD skill**: Use `.opencode/skills/tdd/SKILL.md` for test-driven development workflow
