@@ -1,10 +1,70 @@
-# Test Examples (Prism)
+# Good and Bad Tests
 
-## Good Tests (Behavior-Focused)
+## Good Tests
 
-These tests verify _what_ the system does through public interfaces.
+**Integration-style**: Test through real interfaces, not mocks of internal parts.
 
-### TestSecurityAgent
+```typescript
+// GOOD: Tests observable behavior
+test("user can checkout with valid cart", async () => {
+  const cart = createCart();
+  cart.add(product);
+  const result = await checkout(cart, paymentMethod);
+  expect(result.status).toBe("confirmed");
+});
+```
+
+Characteristics:
+
+- Tests behavior users/callers care about
+- Uses public API only
+- Survives internal refactors
+- Describes WHAT, not HOW
+- One logical assertion per test
+
+## Bad Tests
+
+**Implementation-detail tests**: Coupled to internal structure.
+
+```typescript
+// BAD: Tests implementation details
+test("checkout calls paymentService.process", async () => {
+  const mockPayment = jest.mock(paymentService);
+  await checkout(cart, payment);
+  expect(mockPayment.process).toHaveBeenCalledWith(cart.total);
+});
+```
+
+Red flags:
+
+- Mocking internal collaborators
+- Testing private methods
+- Asserting on call counts/order
+- Test breaks when refactoring without behavior change
+- Test name describes HOW not WHAT
+- Verifying through external means instead of interface
+
+```typescript
+// BAD: Bypasses interface to verify
+test("createUser saves to database", async () => {
+  await createUser({ name: "Alice" });
+  const row = await db.query("SELECT * FROM users WHERE name = ?", ["Alice"]);
+  expect(row).toBeDefined();
+});
+
+// GOOD: Verifies through interface
+test("createUser makes user retrievable", async () => {
+  const user = await createUser({ name: "Alice" });
+  const retrieved = await getUser(user.id);
+  expect(retrieved.name).toBe("Alice");
+});
+```
+
+---
+
+## Prism Examples
+
+### Good: Testing Through Public Interface
 
 ```python
 class TestSecurityAgent:
@@ -24,7 +84,7 @@ class TestSecurityAgent:
 
 **Why it's good**: Tests the public `forward()` interface. Doesn't care how `review` is implemented internally.
 
-### TestWeightedScore
+### Good: Testing Domain Logic
 
 ```python
 class TestWeightedScore:
@@ -41,35 +101,7 @@ class TestWeightedScore:
 
 **Why it's good**: Tests the domain logic directly. Clear relationship between input and expected output.
 
-### TestDebateModule
-
-```python
-class TestDebateModule:
-    def test_challenge_reduces_confidence(self):
-        debate = DebateModule()
-        mock_result = MagicMock()
-        mock_result.challenge = "Invalid finding"
-        mock_result.confidence_adjustment = -0.5
-        debate.challenge = MagicMock(return_value=mock_result)
-
-        agent_results = {
-            "security": {"findings": [{"finding": "x", "confidence": 0.8}]},
-        }
-        result = debate(agent_results=agent_results, diff="+y")
-
-        assert len(result["debate_records"]) == 1
-        assert result["debate_records"][0]["new_confidence"] == pytest.approx(0.3)
-```
-
-**Why it's good**: Integration test that exercises the debate flow through public interface.
-
----
-
-## Bad Tests (Implementation-Coupled)
-
-These tests break when you refactor, even if behavior hasn't changed.
-
-### BAD: Testing Private Methods
+### Bad: Testing Private Methods
 
 ```python
 class TestSecurityAgent:
@@ -82,7 +114,7 @@ class TestSecurityAgent:
 
 **Why it's bad**: Tests `_build_prompt()` private method. If you rename it or extract it, test breaks but behavior is unchanged.
 
-### BAD: Mocking Internal Collaborators
+### Bad: Testing Internal Call Order
 
 ```python
 class TestReviewOrchestrator:
@@ -98,68 +130,3 @@ class TestReviewOrchestrator:
 ```
 
 **Why it's bad**: Tests implementation detail (which internal agents are called). If you change agent ordering or add parallelism, test breaks.
-
-### BAD: Testing Data Structure Shape
-
-```python
-class TestAgentReview:
-    def test_agent_review_has_required_fields(self):
-        review = AgentReview(agent_name="security")
-        assert hasattr(review, "agent_name")
-        assert hasattr(review, "findings")
-        assert hasattr(review, "confidence")
-```
-
-**Why it's bad**: Tests Pydantic model structure, not behavior. Model changes are implementation details.
-
----
-
-## Prism Patterns
-
-### Testing Async Nodes
-
-```python
-import asyncio
-
-class TestReviewNode:
-    def test_review_node_returns_verdict(self):
-        state = {"files_changed": "x.py", "diff": "+line"}
-        mock_verdict = {
-            "summary": "OK",
-            "critical_findings": [],
-            "major_findings": [],
-            "minor_findings": [],
-            "approved": True,
-            "debate_records": [],
-        }
-        with patch("app.graph.nodes.review_pipeline.get_pipeline") as mock_get:
-            mock_pipeline = MagicMock(return_value=mock_verdict)
-            mock_get.return_value = mock_pipeline
-            result = asyncio.run(run_review_pipeline(state))
-            assert result["approved"] is True
-```
-
-### Testing Pydantic Models
-
-```python
-class TestFinding:
-    def test_severity_must_be_valid_literal(self):
-        finding = Finding(
-            finding="x",
-            severity="critical",
-            confidence=0.9,
-            evidence="code snippet",
-            recommendation="fix it",
-        )
-        assert finding.severity == "critical"
-
-    def test_confidence_out_of_range_raises(self):
-        with pytest.raises(ValidationError):
-            Finding(
-                finding="x",
-                severity="critical",
-                confidence=1.5,  # out of range
-                evidence="e",
-                recommendation="r",
-            )
-```
