@@ -31,8 +31,8 @@ Each review agent is a `dspy.Module` with a `dspy.ChainOfThought` signature. A `
 
 ### Remaining
 
-- [ ] Phase 9: CLI (Click) + Daemon (FastAPI + APScheduler)
-- [ ] Phase 10: CI/CD update — PostgreSQL+pgvector docker-compose, E2E tests
+- [x] Phase 9: CLI (Click) + Daemon (FastAPI + APScheduler)
+- [x] Phase 10: CI/CD update — PostgreSQL+pgvector docker-compose, E2E tests
 
 ## Tech Stack
 
