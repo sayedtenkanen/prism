@@ -1,3 +1,5 @@
+import pytest
+
 from app.observability.costs import MODEL_COSTS_PER_1K_TOKENS, CostTracker, TokenCost
 
 
@@ -30,6 +32,11 @@ class TestCostTracker:
         assert record.output_tokens == 500
         assert record.total_cost > 0
         assert len(tracker.records) == 1
+
+    def test_record_usage_unknown_model_raises(self):
+        tracker = CostTracker()
+        with pytest.raises(ValueError, match="Unknown model"):
+            tracker.record_usage("unknown-model", input_tokens=100, output_tokens=50)
 
     def test_record_usage_calculation(self):
         tracker = CostTracker()

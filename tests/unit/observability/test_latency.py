@@ -1,5 +1,7 @@
 import time
 
+import pytest
+
 from app.observability.latency import LatencyTracker, NodeLatency
 
 
@@ -28,6 +30,12 @@ class TestLatencyTracker:
         record = tracker.start("fetch_pr")
         assert record.node_name == "fetch_pr"
         assert "fetch_pr" in tracker._active
+
+    def test_start_duplicate_raises(self):
+        tracker = LatencyTracker()
+        tracker.start("fetch_pr")
+        with pytest.raises(ValueError, match="already active"):
+            tracker.start("fetch_pr")
 
     def test_finish(self):
         tracker = LatencyTracker()
@@ -87,6 +95,11 @@ class TestLatencyTracker:
         total = tracker.get_total_latency()
         assert total >= 0.0
 
+    def test_get_total_latency_no_spans(self):
+        tracker = LatencyTracker()
+        total = tracker.get_total_latency()
+        assert total == 0.0
+
     def test_get_slowest_nodes(self):
         tracker = LatencyTracker()
         for _ in range(5):
@@ -129,6 +142,7 @@ class TestLatencyTracker:
         summary = tracker.get_summary()
         assert summary["total_latency_ms"] == 0.0
         assert summary["num_nodes"] == 0
+        assert summary["errors"] == 0
 
     def test_clear(self):
         tracker = LatencyTracker()

@@ -21,6 +21,8 @@ class LatencyTracker:
         self._active: dict[str, NodeLatency] = {}
 
     def start(self, node_name: str) -> NodeLatency:
+        if node_name in self._active:
+            raise ValueError(f"Node '{node_name}' is already active; finish it before starting again")
         record = NodeLatency(node_name=node_name)
         self._active[node_name] = record
         return record
@@ -65,9 +67,6 @@ class LatencyTracker:
         return result[:top_n]
 
     def get_summary(self) -> dict[str, Any]:
-        if not self.records:
-            return {"total_latency_ms": 0.0, "num_nodes": 0, "slowest_nodes": []}
-
         return {
             "total_latency_ms": self.get_total_latency(),
             "num_nodes": len(self.records),

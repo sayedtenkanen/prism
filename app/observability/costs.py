@@ -35,7 +35,11 @@ class CostTracker:
         input_tokens: int,
         output_tokens: int,
     ) -> TokenCost:
-        costs = MODEL_COSTS_PER_1K_TOKENS.get(model, {"input": 0.0, "output": 0.0})
+        if model not in MODEL_COSTS_PER_1K_TOKENS:
+            available = ", ".join(sorted(MODEL_COSTS_PER_1K_TOKENS.keys()))
+            raise ValueError(f"Unknown model '{model}'. Available models: {available}")
+
+        costs = MODEL_COSTS_PER_1K_TOKENS[model]
         input_cost = (input_tokens / 1000) * costs["input"]
         output_cost = (output_tokens / 1000) * costs["output"]
         total = round(input_cost + output_cost, 6)
