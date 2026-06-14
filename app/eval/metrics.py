@@ -1,18 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel
-
-SeverityLevel = Literal["critical", "high", "medium", "low", "info"]
-
-SEVERITY_ORDER: dict[str, int] = {
-    "critical": 0,
-    "high": 1,
-    "medium": 2,
-    "low": 3,
-    "info": 4,
-}
 
 
 class EvaluationMetrics(BaseModel):
@@ -52,7 +42,6 @@ def _severity_matches(predicted: dict[str, Any], expected: dict[str, Any]) -> bo
 def compute_metrics(
     predicted_findings: list[dict[str, Any]],
     expected_findings: list[dict[str, Any]],
-    severity_weight: float = 0.5,
 ) -> EvaluationMetrics:
     if not expected_findings and not predicted_findings:
         return EvaluationMetrics(

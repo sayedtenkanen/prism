@@ -58,7 +58,6 @@ class ReviewOptimizer:
         self,
         dataset: BenchmarkDataset,
         optimizer_name: str = "bootstrap_fewshot",
-        target_agent: str | None = None,
     ) -> FullReviewPipeline:
         if optimizer_name not in self.optimizers:
             raise ValueError(f"Unknown optimizer: {optimizer_name}. Available: {list(self.optimizers.keys())}")
@@ -120,14 +119,23 @@ class ReviewOptimizer:
         k_folds: int = 5,
         optimizer_name: str = "bootstrap_fewshot",
     ) -> dict[str, Any]:
+        if k_folds < 1:
+            raise ValueError(f"k_folds must be >= 1, got {k_folds}")
+        if k_folds > len(dataset.cases):
+            raise ValueError(f"k_folds ({k_folds}) cannot exceed dataset size ({len(dataset.cases)})")
+
         fold_size = len(dataset.cases) // k_folds
+        remainder = len(dataset.cases) % k_folds
         fold_results: list[dict[str, Any]] = []
 
+        offset = 0
         for i in range(k_folds):
-            test_start = i * fold_size
-            test_end = test_start + fold_size
+            extra = 1 if i < remainder else 0
+            test_start = offset
+            test_end = offset + fold_size + extra
             test_cases = dataset.cases[test_start:test_end]
             train_cases = dataset.cases[:test_start] + dataset.cases[test_end:]
+            offset = test_end
 
             train_dataset = BenchmarkDataset(
                 name=f"{dataset.name}_fold_{i}_train",
