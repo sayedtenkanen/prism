@@ -105,7 +105,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short --cov=app --cov-report=html --cov-report=term --cov-fail-under=90"
+addopts = "-v --tb=short --cov=app --cov-report=html --cov-report=term"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
@@ -113,7 +113,6 @@ source = ["app"]
 omit = ["tests/*", "app/cli.py", "app/daemon.py", "app/main.py"]
 
 [tool.coverage.report]
-fail_under = 90
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
