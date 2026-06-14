@@ -2,13 +2,14 @@
 
 ## Project Overview
 
-AI-powered multi-language PR review tool using LangGraph, running in Jenkins CI/CD or standalone CLI.
+AI-powered multi-language PR review tool using LangGraph + DSPy with SIA (Self-Improving Agent) feedback loops, running in Jenkins CI/CD or standalone CLI.
 
 ## Tech Stack
 
-- Python 3.9.6 (system python)
+- Python 3.12
+- DSPy 3.2 for LLM program optimization
 - Pydantic v2 with `pydantic-settings`
-- LangGraph + LangChain for pipeline orchestration
+- LangGraph for pipeline orchestration
 - FastAPI + Uvicorn for API/daemon
 - Ruff for linting and formatting
 - Mypy for type checking
@@ -59,6 +60,10 @@ app/
 - Config uses nested Pydantic models with `env_prefix` — see `app/core/config.py`
 - `TestResult.evaluate()` only sets threshold/passed when coverage is not None
 - Coverage thresholds: per-language defaults in `TestConfig.language_thresholds`, per-project overrides in `project_thresholds`
+- SIA: Memory entries use `repo` as `{owner}/{repo}` format
+- SIA: Feedback actions are `FeedbackAction` enum (accept/reject/modify)
+- SIA: Dataset entries include `language`, `files_changed`, `diff`, `findings`, `feedback` fields
+- SIA: Training datasets balanced by language using `DatasetBuilder.filter_by_language()`
 
 ## Testing
 
