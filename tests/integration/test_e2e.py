@@ -29,6 +29,30 @@ async def test_list_jobs_empty(client: AsyncClient) -> None:
     assert response.json() == {}
 
 
+async def test_list_jobs_non_empty(client: AsyncClient) -> None:
+    create_response = await client.post(
+        "/api/v1/jobs/",
+        json={
+            "owner": "test",
+            "repo": "repo",
+            "pr_number": 1,
+            "scm_token": "token",
+            "trigger": "interval",
+            "interval_seconds": 60,
+        },
+    )
+    assert create_response.status_code == 200
+    created_job = create_response.json()
+    assert created_job["status"] == "created"
+    created_job_id = created_job["job_id"]
+
+    list_response = await client.get("/api/v1/jobs/")
+    assert list_response.status_code == 200
+    jobs = list_response.json()
+    assert created_job_id in jobs
+    assert jobs[created_job_id] == "test/repo#1"
+
+
 async def test_create_job_invalid_trigger(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/jobs/",

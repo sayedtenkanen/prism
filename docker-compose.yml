@@ -7,14 +7,14 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: prism
-      POSTGRES_PASSWORD: prism_secret
-      POSTGRES_DB: prism
+      POSTGRES_USER: ${POSTGRES_USER:-prism}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prism_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-prism}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U prism -d prism"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prism} -d ${POSTGRES_DB:-prism}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,7 +36,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://prism:prism_secret@postgres:5432/prism
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-prism}:${POSTGRES_PASSWORD:-prism_secret}@postgres:5432/${POSTGRES_DB:-prism}
       REDIS_URL: redis://redis:6379/0
       SCM_GITHUB_TOKEN: ${SCM_GITHUB_TOKEN}
       LLM_API_KEY: ${LLM_API_KEY}

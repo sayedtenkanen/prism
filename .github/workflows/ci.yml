@@ -28,8 +28,18 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    env:
+      POSTGRES_USER: prism
+      POSTGRES_PASSWORD: prism_secret
+      POSTGRES_DB: prism
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -41,9 +51,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            PGPASSWORD=${{ env.POSTGRES_PASSWORD }} pg_isready -h localhost -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} && break
+            echo "Postgres is unavailable - sleeping"
+            sleep 2
+          done
+          PGPASSWORD=${{ env.POSTGRES_PASSWORD }} pg_isready -h localhost -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }}
+
       - name: Initialize pgvector
         run: |
-          PGPASSWORD=prism_secret psql -h localhost -U prism -d prism -f scripts/init-pgvector.sql
+          PGPASSWORD=${{ env.POSTGRES_PASSWORD }} psql -h localhost -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -f scripts/init-pgvector.sql
 
       - name: Lint with ruff
         run: |
@@ -65,7 +84,7 @@ jobs:
         run: |
           pytest tests/integration/ -v --tb=short
         env:
-          DATABASE_URL: postgresql+asyncpg://prism:prism_secret@localhost:5432/prism
+          DATABASE_URL: postgresql+asyncpg://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3

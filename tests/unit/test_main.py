@@ -1,11 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.daemon import daemon
 from app.main import app
 
 
 @pytest.fixture
 def client() -> TestClient:
+    daemon._jobs.clear()
     return TestClient(app)
 
 
