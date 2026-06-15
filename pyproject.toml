@@ -110,7 +110,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["tests/*", "app/cli.py", "app/daemon.py", "app/main.py"]
+omit = ["tests/*"]
 
 [tool.coverage.report]
 show_missing = true
@@ -121,3 +121,6 @@ exclude_lines = [
     "pass",
     "raise NotImplementedError",
 ]
+
+[tool.coverage.fail_under]
+fail_under = 90
